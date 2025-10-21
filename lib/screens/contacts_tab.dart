@@ -464,7 +464,7 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
                               child: Text(
                                 contact.name.isNotEmpty
                                     ? contact.name[0].toUpperCase()
-                                    : '?','
+                                    : '?',
                               ),
                             ),
                             title: Text(
