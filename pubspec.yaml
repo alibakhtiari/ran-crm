@@ -24,7 +24,7 @@ dependencies:
   path: ^1.9.0
 
   # Contact and call log reading
-  flutter_contacts: ^1.1.7+1
+  flutter_contacts: ^1.1.9+2
   permission_handler: ^11.3.1
   call_log: ^4.0.0
 
