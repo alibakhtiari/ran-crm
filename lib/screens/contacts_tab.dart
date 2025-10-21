@@ -222,79 +222,6 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
     }
   }
 
-  Future<void> _showAddContactDialog() async {
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Contact'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone Number',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty &&
-                  phoneController.text.isNotEmpty) {
-                final authProvider = context.read<AuthProvider>();
-                final user = authProvider.user;
-
-                if (user == null) {
-                  Navigator.pop(context, false);
-                  return;
-                }
-
-                final contact = Contact(
-                  name: nameController.text,
-                  phoneNumber: phoneController.text,
-                  createdByUserId: user.id,
-                  createdAt: DateTime.now(),
-                );
-
-                final success =
-                    await context.read<ContactProvider>().addContact(contact);
-                if (context.mounted) {
-                  Navigator.pop(context, success);
-                }
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contact added successfully')),
-      );
-    }
-  }
-
   Future<void> _showEditContactDialog(Contact contact) async {
     final nameController = TextEditingController(text: contact.name);
     final phoneController = TextEditingController(text: contact.phoneNumber);
@@ -525,7 +452,7 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
                               child: Text(
                                 contact.name.isNotEmpty
                                     ? contact.name[0].toUpperCase()
-                                    : '?',
+                                    : '?','
                               ),
                             ),
                             title: Text(
