@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/call_log.dart';
 import '../providers/call_log_provider.dart';
 import '../providers/contact_provider.dart';
 
@@ -23,8 +24,6 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Data is already loaded from cache via CallLogProvider constructor
-      // Fetch fresh data in background
       context.read<CallLogProvider>().fetchCallLogs(showLoading: false);
     });
   }
@@ -36,10 +35,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     } else {
@@ -52,10 +48,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
   }
 
   Future<void> _sendSMS(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'sms',
-      path: phoneNumber,
-    );
+    final Uri launchUri = Uri(scheme: 'sms', path: phoneNumber);
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     } else {
@@ -68,16 +61,14 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
   }
 
   String _formatDuration(int seconds) {
-    if (seconds < 60) {
-      return '${seconds}s';
-    }
+    if (seconds < 60) return '${seconds}s';
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
     return '${minutes}m ${remainingSeconds}s';
   }
 
-  IconData _getCallTypeIcon(String callType) {
-    switch (callType.toLowerCase()) {
+  IconData _getCallTypeIcon(String? callType) {
+    switch (callType?.toLowerCase()) {
       case 'incoming':
         return Icons.call_received;
       case 'outgoing':
@@ -89,8 +80,8 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
     }
   }
 
-  Color _getCallTypeColor(String callType) {
-    switch (callType.toLowerCase()) {
+  Color _getCallTypeColor(String? callType) {
+    switch (callType?.toLowerCase()) {
       case 'incoming':
         return Colors.blue;
       case 'outgoing':
@@ -108,7 +99,6 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
 
     return Column(
       children: [
-        // Search bar
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: TextField(
@@ -125,9 +115,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                       },
                     )
                   : null,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16),
             ),
             onChanged: (value) {
@@ -135,8 +123,6 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
             },
           ),
         ),
-
-        // Call logs list
         Expanded(
           child: Consumer2<CallLogProvider, ContactProvider>(
             builder: (context, callLogProvider, contactProvider, _) {
@@ -149,10 +135,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        'Error: ${callLogProvider.errorMessage}',
-                        textAlign: TextAlign.center,
-                      ),
+                      Text('Error: ${callLogProvider.errorMessage}', textAlign: TextAlign.center),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () => callLogProvider.fetchCallLogs(),
@@ -163,26 +146,24 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                 );
               }
 
-              // Filter call logs based on search
               final filteredCallLogs = _searchQuery.isEmpty
                   ? callLogProvider.callLogs
                   : callLogProvider.callLogs.where((callLog) {
-                      // Get contact name
-                      final contact = callLog.contactName ??
-                          contactProvider.getContactByPhone(callLog.phoneNumber)?.name;
+                      final contact = callLog.phoneNumber != null
+                          ? contactProvider.getContactByPhone(callLog.phoneNumber!)
+                          : null;
+                      final contactName = callLog.contactName ?? contact?.name;
 
-                      return (contact?.toLowerCase().contains(_searchQuery) ?? false) ||
-                          callLog.phoneNumber.contains(_searchQuery) ||
-                          callLog.callType.toLowerCase().contains(_searchQuery);
+                      return (contactName?.toLowerCase().contains(_searchQuery) ?? false) ||
+                          (callLog.phoneNumber?.contains(_searchQuery) ?? false) ||
+                          (callLog.callType?.toLowerCase().contains(_searchQuery) ?? false);
                     }).toList();
 
               if (filteredCallLogs.isEmpty) {
                 return Center(
-                  child: Text(
-                    _searchQuery.isEmpty
-                        ? 'No call logs yet. Sync your phone to get started!'
-                        : 'No call logs found matching "$_searchQuery"',
-                  ),
+                  child: Text(_searchQuery.isEmpty
+                      ? 'No call logs yet. Sync your phone to get started!'
+                      : 'No call logs found matching "$_searchQuery"'),
                 );
               }
 
@@ -191,20 +172,16 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                 child: ListView.builder(
                   itemCount: filteredCallLogs.length,
                   itemBuilder: (context, index) {
-                    final callLog = filteredCallLogs[index];
-
-                    // Try to get contact name from call log or contacts
-                    final contactName = callLog.contactName ??
-                        contactProvider.getContactByPhone(callLog.phoneNumber)?.name;
-
-                    final displayName = contactName ?? callLog.phoneNumber;
+                    final CallLog callLog = filteredCallLogs[index];
+                    final contact = callLog.phoneNumber != null
+                        ? contactProvider.getContactByPhone(callLog.phoneNumber!)
+                        : null;
+                    final contactName = callLog.contactName ?? contact?.name;
+                    final displayName = contactName ?? callLog.phoneNumber ?? 'Unknown';
                     final dateFormatter = DateFormat('MMM dd, HH:mm');
 
                     return Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: _getCallTypeColor(callLog.callType).withAlpha(51),
@@ -216,24 +193,19 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                         title: Text(
                           displayName,
                           style: TextStyle(
-                            fontWeight: contactName != null
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            fontWeight: contactName != null ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (contactName != null)
+                            if (contactName != null && callLog.phoneNumber != null)
                               Text(
-                                callLog.phoneNumber,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
+                                callLog.phoneNumber!,
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                               ),
                             Text(
-                              '${callLog.callType.toUpperCase()} • ${_formatDuration(callLog.duration)} • ${dateFormatter.format(callLog.timestamp)}',
+                              '${(callLog.callType ?? 'unknown').toUpperCase()} • ${_formatDuration(callLog.duration)} • ${dateFormatter.format(callLog.timestamp)}',
                               style: const TextStyle(fontSize: 12),
                             ),
                           ],
@@ -241,17 +213,19 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Call button
                             IconButton(
                               icon: const Icon(Icons.phone, color: Colors.green),
                               tooltip: 'Call',
-                              onPressed: () => _makePhoneCall(callLog.phoneNumber),
+                              onPressed: callLog.phoneNumber != null
+                                  ? () => _makePhoneCall(callLog.phoneNumber!)
+                                  : null,
                             ),
-                            // SMS button
                             IconButton(
                               icon: const Icon(Icons.message, color: Colors.blue),
                               tooltip: 'Text',
-                              onPressed: () => _sendSMS(callLog.phoneNumber),
+                              onPressed: callLog.phoneNumber != null
+                                  ? () => _sendSMS(callLog.phoneNumber!)
+                                  : null,
                             ),
                           ],
                         ),

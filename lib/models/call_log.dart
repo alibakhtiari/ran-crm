@@ -22,13 +22,13 @@ class CallLog {
   factory CallLog.fromJson(Map<String, dynamic> json) {
     return CallLog(
       id: json['id'] as int?,
-      phoneNumber: json['phone_number'] as String,
-      callType: json['call_type'] as String,
-      duration: json['duration'] as int,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      phoneNumber: json['phone_number'] as String? ?? '',
+      callType: json['call_type'] as String? ?? '',
+      duration: json['duration'] as int? ?? 0,
+      timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : DateTime.now(),
       userId: json['user_id'] as int,
       contactName: json['contact_name'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
     );
   }
 
