@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/call_log_provider.dart';
 import '../providers/contact_provider.dart';
-import '../models/call_log.dart';
 
 class CallLogsTab extends StatefulWidget {
   const CallLogsTab({super.key});
