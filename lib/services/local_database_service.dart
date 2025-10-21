@@ -93,7 +93,7 @@ class LocalDatabaseService {
 
     final List<Map<String, dynamic>> maps = await db.query(
       'contacts',
-      where: 'REPLACE(REPLACE(REPLACE(REPLACE(phone_number, " ", ""), "-", ""), "(", ""), ")", "") LIKE ?',
+      where: "REPLACE(REPLACE(REPLACE(REPLACE(phone_number, ' ', ''), '-', ''), '(', ''), ')', '') LIKE ?",
       whereArgs: ['%$normalized%'],
       limit: 1,
     );
