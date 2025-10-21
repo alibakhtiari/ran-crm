@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -44,7 +45,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
         await context.read<ContactProvider>().fetchContacts();
       }
     } catch (e) {
-      print('Auto-sync failed: $e');
+      if (kDebugMode) {
+        print('Auto-sync failed: $e');
+      }
       // Silent failure - don't show error to user
     }
   }
@@ -96,7 +99,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
       try {
         contactResult = await _contactSync.syncContactsToServer(userId);
       } catch (e) {
-        print('Contact sync error: $e');
+        if (kDebugMode) {
+          print('Contact sync error: $e');
+        }
         contactResult = contact_service.SyncResult(
           total: 0,
           synced: 0,
@@ -110,7 +115,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
       try {
         callLogResult = await _callLogSync.syncCallLogsToServer(userId);
       } catch (e) {
-        print('Call log sync error: $e');
+        if (kDebugMode) {
+          print('Call log sync error: $e');
+        }
         callLogResult = call_log_service.SyncResult(
           total: 0,
           synced: 0,
@@ -129,7 +136,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
         try {
           await context.read<ContactProvider>().fetchContacts();
         } catch (e) {
-          print('Failed to refresh contacts: $e');
+          if (kDebugMode) {
+            print('Failed to refresh contacts: $e');
+          }
         }
       }
 
@@ -165,7 +174,9 @@ class _ContactsScreenState extends State<ContactsScreen> {
         );
       }
     } catch (e) {
-      print('Sync failed with error: $e');
+      if (kDebugMode) {
+        print('Sync failed with error: $e');
+      }
       // Close progress dialog if open
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);

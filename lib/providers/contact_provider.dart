@@ -26,7 +26,9 @@ class ContactProvider extends ChangeNotifier {
       _contacts = await _localDb.getContacts();
       notifyListeners();
     } catch (e) {
-      print('Failed to load from cache: $e');
+      if (kDebugMode) {
+        print('Failed to load from cache: $e');
+      }
     }
   }
 

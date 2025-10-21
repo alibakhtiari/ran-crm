@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -55,7 +56,9 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
         await context.read<ContactProvider>().fetchContacts(showLoading: false);
       }
     } catch (e) {
-      print('Auto-sync failed: $e');
+      if (kDebugMode) {
+        print('Auto-sync failed: $e');
+      }
     }
   }
 
@@ -104,7 +107,9 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
       try {
         contactResult = await _contactSync.syncContactsToServer(userId);
       } catch (e) {
-        print('Contact sync error: $e');
+        if (kDebugMode) {
+          print('Contact sync error: $e');
+        }
         contactResult = contact_service.SyncResult(
           total: 0,
           synced: 0,
@@ -117,7 +122,9 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
       try {
         callLogResult = await _callLogSync.syncCallLogsToServer(userId);
       } catch (e) {
-        print('Call log sync error: $e');
+        if (kDebugMode) {
+          print('Call log sync error: $e');
+        }
         callLogResult = call_log_service.SyncResult(
           total: 0,
           synced: 0,
@@ -134,7 +141,9 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
         try {
           await context.read<ContactProvider>().fetchContacts();
         } catch (e) {
-          print('Failed to refresh contacts: $e');
+          if (kDebugMode) {
+            print('Failed to refresh contacts: $e');
+          }
         }
       }
 
@@ -169,7 +178,9 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
         );
       }
     } catch (e) {
-      print('Sync failed with error: $e');
+      if (kDebugMode) {
+        print('Sync failed with error: $e');
+      }
       if (mounted && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -265,11 +276,11 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
                   phoneNumber: phoneController.text,
                   updatedAt: DateTime.now(),
                 );
-
+                if (!mounted) return;
                 final success = await context
                     .read<ContactProvider>()
                     .updateContact(contact.id!, updatedContact);
-                if (context.mounted) {
+                if (mounted) {
                   Navigator.pop(context, success);
                 }
               }
@@ -308,6 +319,7 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
     );
 
     if (confirm == true) {
+      if (!mounted) return;
       final success =
           await context.read<ContactProvider>().deleteContact(contact.id!);
       if (mounted && success) {

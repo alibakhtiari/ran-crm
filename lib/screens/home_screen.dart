@@ -78,9 +78,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 onSelected: (value) async {
                   if (value == 'logout') {
                     await context.read<AuthProvider>().logout();
-                    if (mounted) {
-                      Navigator.of(context).pushReplacementNamed('/login');
-                    }
+                    if (!mounted) return;
+                    Navigator.of(context).pushReplacementNamed('/login');
                   }
                 },
               ),
@@ -157,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   createdByUserId: user.id,
                   createdAt: DateTime.now(),
                 );
-
+                if (!context.mounted) return;
                 final success =
                     await context.read<ContactProvider>().addContact(contact);
                 if (dialogContext.mounted) {

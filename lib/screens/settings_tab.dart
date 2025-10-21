@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,7 +34,9 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
         _syncIntervalHours = prefs.getInt('sync_interval_hours') ?? 1;
       });
     } catch (e) {
-      print('Failed to load settings: $e');
+      if (kDebugMode) {
+        print('Failed to load settings: $e');
+      }
     }
   }
 
@@ -45,7 +48,9 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
         _syncIntervalHours = hours;
       });
     } catch (e) {
-      print('Failed to save sync interval: $e');
+      if (kDebugMode) {
+        print('Failed to save sync interval: $e');
+      }
     }
   }
 

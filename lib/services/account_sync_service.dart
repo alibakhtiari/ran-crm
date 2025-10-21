@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class AccountSyncService {
@@ -12,7 +13,9 @@ class AccountSyncService {
       });
       return result;
     } on PlatformException catch (e) {
-      print('Failed to add account: ${e.message}');
+      if (kDebugMode) {
+        print('Failed to add account: ${e.message}');
+      }
       return false;
     }
   }
@@ -25,7 +28,9 @@ class AccountSyncService {
       });
       return result;
     } on PlatformException catch (e) {
-      print('Failed to remove account: ${e.message}');
+      if (kDebugMode) {
+        print('Failed to remove account: ${e.message}');
+      }
       return false;
     }
   }
@@ -36,7 +41,9 @@ class AccountSyncService {
       final bool result = await platform.invokeMethod('hasAccount');
       return result;
     } on PlatformException catch (e) {
-      print('Failed to check account: ${e.message}');
+      if (kDebugMode) {
+        print('Failed to check account: ${e.message}');
+      }
       return false;
     }
   }
@@ -47,7 +54,9 @@ class AccountSyncService {
       final List<dynamic> result = await platform.invokeMethod('getAccounts');
       return result.cast<String>();
     } on PlatformException catch (e) {
-      print('Failed to get accounts: ${e.message}');
+      if (kDebugMode) {
+        print('Failed to get accounts: ${e.message}');
+      }
       return [];
     }
   }
@@ -60,7 +69,9 @@ class AccountSyncService {
       });
       return result;
     } on PlatformException catch (e) {
-      print('Failed to request sync: ${e.message}');
+      if (kDebugMode) {
+        print('Failed to request sync: ${e.message}');
+      }
       return false;
     }
   }
@@ -74,7 +85,9 @@ class AccountSyncService {
       });
       return result;
     } on PlatformException catch (e) {
-      print('Failed to set auto sync: ${e.message}');
+      if (kDebugMode) {
+        print('Failed to set auto sync: ${e.message}');
+      }
       return false;
     }
   }

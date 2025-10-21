@@ -207,7 +207,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                       ),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: _getCallTypeColor(callLog.callType).withOpacity(0.2),
+                          backgroundColor: _getCallTypeColor(callLog.callType).withAlpha(51),
                           child: Icon(
                             _getCallTypeIcon(callLog.callType),
                             color: _getCallTypeColor(callLog.callType),

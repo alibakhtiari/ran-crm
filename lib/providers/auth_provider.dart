@@ -88,7 +88,9 @@ class AuthProvider extends ChangeNotifier {
           await accountSyncService.addAccount(email, token);
           await accountSyncService.enableAutoSync(email, true);
         } catch (e) {
-          print('Failed to add account to system: $e');
+          if (kDebugMode) {
+            print('Failed to add account to system: $e');
+          }
           // Continue even if account sync fails
         }
       }
@@ -97,9 +99,13 @@ class AuthProvider extends ChangeNotifier {
       try {
         await BackgroundSyncService.initialize();
         await BackgroundSyncService.registerPeriodicSync();
-        print('✅ Background sync registered successfully');
+        if (kDebugMode) {
+          print('✅ Background sync registered successfully');
+        }
       } catch (e) {
-        print('❌ Failed to register background sync: $e');
+        if (kDebugMode) {
+          print('❌ Failed to register background sync: $e');
+        }
         // Continue even if background sync fails
       }
 
@@ -118,9 +124,13 @@ class AuthProvider extends ChangeNotifier {
     // Unregister background sync
     try {
       await BackgroundSyncService.cancelAllTasks();
-      print('✅ Background sync unregistered');
+      if (kDebugMode) {
+        print('✅ Background sync unregistered');
+      }
     } catch (e) {
-      print('❌ Failed to unregister background sync: $e');
+      if (kDebugMode) {
+        print('❌ Failed to unregister background sync: $e');
+      }
     }
 
     // Remove account from Android system
@@ -129,7 +139,9 @@ class AuthProvider extends ChangeNotifier {
       try {
         await accountSyncService.removeAccount(userEmail);
       } catch (e) {
-        print('Failed to remove account from system: $e');
+        if (kDebugMode) {
+          print('Failed to remove account from system: $e');
+        }
       }
     }
 
@@ -159,7 +171,9 @@ class AuthProvider extends ChangeNotifier {
       await BackgroundSyncService.registerOneTimeSync();
       return true;
     } catch (e) {
-      print('Failed to trigger sync: $e');
+      if (kDebugMode) {
+        print('Failed to trigger sync: $e');
+      }
       return false;
     }
   }

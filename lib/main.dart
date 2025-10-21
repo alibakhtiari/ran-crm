@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
@@ -14,9 +15,13 @@ void main() async {
   // Initialize background sync service
   try {
     await BackgroundSyncService.initialize();
-    print('✅ Background sync service initialized');
+    if (kDebugMode) {
+      print('✅ Background sync service initialized');
+    }
   } catch (e) {
-    print('❌ Failed to initialize background sync: $e');
+    if (kDebugMode) {
+      print('❌ Failed to initialize background sync: $e');
+    }
   }
 
   runApp(const MyApp());

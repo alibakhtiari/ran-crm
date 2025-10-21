@@ -26,7 +26,9 @@ class CallLogProvider extends ChangeNotifier {
       _callLogs = await _localDb.getCallLogs(limit: 500);
       notifyListeners();
     } catch (e) {
-      print('Failed to load call logs from cache: $e');
+      if (kDebugMode) {
+        print('Failed to load call logs from cache: $e');
+      }
     }
   }
 
