@@ -1,0 +1,53 @@
+name: ran_crm
+description: RAN CRM - A shared contact and call log CRM app
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP client
+  dio: ^5.4.0
+
+  # Secure storage for JWT
+  flutter_secure_storage: ^9.0.0
+
+  # State management
+  provider: ^6.1.1
+
+  # Local database
+  sqflite: ^2.3.2
+  path: ^1.8.3
+
+  # Contact and call log reading
+  flutter_contacts: ^1.1.7+1
+  permission_handler: ^11.1.0
+  call_log: ^4.0.0
+
+  # Date/time formatting
+  intl: ^0.18.1
+
+  # UI helpers
+  cupertino_icons: ^1.0.6
+
+  # Settings storage
+  shared_preferences: ^2.2.2
+
+  # URL launcher for call and SMS
+  url_launcher: ^6.2.2
+
+  # Background sync - using Android AlarmManager approach
+  # Note: workmanager 0.5.2 has compatibility issues with newer Flutter
+  # Using manual sync + periodic check approach instead
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
