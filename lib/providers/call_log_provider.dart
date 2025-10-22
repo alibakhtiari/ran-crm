@@ -23,7 +23,7 @@ class CallLogProvider extends ChangeNotifier {
   /// Load call logs from local cache (instant)
   Future<void> _loadFromCache() async {
     try {
-      _callLogs = await _localDb.getCallLogs(limit: 500);
+      _callLogs = await _localDb.getCallLogs();
       notifyListeners();
     } catch (e) {
       if (kDebugMode) {

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -158,6 +159,10 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                           (callLog.phoneNumber?.contains(_searchQuery) ?? false) ||
                           (callLog.callType?.toLowerCase().contains(_searchQuery) ?? false);
                     }).toList();
+
+              if (kDebugMode) {
+                print('Number of call logs being displayed: ${filteredCallLogs.length}');
+              }
 
               if (filteredCallLogs.isEmpty) {
                 return Center(

@@ -188,7 +188,7 @@ class LocalDatabaseService {
     final List<Map<String, dynamic>> maps = await db.query(
       'call_logs',
       orderBy: 'timestamp DESC',
-      limit: limit,
+      limit: limit, // This limit is now passed from the provider
     );
 
     return List.generate(maps.length, (i) {
@@ -272,7 +272,7 @@ class LocalDatabaseService {
   // Update contact names in call logs (useful after syncing new contacts)
   Future<void> updateCallLogContactNames() async {
     final db = await database;
-    final callLogs = await getCallLogs();
+    final callLogs = await getCallLogs(); // This will now fetch all call logs
 
     final batch = db.batch();
     for (final callLog in callLogs) {

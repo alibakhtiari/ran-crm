@@ -94,7 +94,7 @@ class ApiClient {
   // Calls
   Future<List<Call>> getCalls() async {
     try {
-      final response = await dio.get('/calls');
+      final response = await dio.get('/calls', queryParameters: {'limit': 10000});
       final List<dynamic> data = response.data as List<dynamic>;
       return data.map((json) => Call.fromJson(json)).toList();
     } catch (e) {
@@ -105,7 +105,7 @@ class ApiClient {
   // Call Logs (alias for getCalls, returns CallLog format)
   Future<List<CallLog>> getCallLogs() async {
     try {
-      final response = await dio.get('/calls');
+      final response = await dio.get('/calls', queryParameters: {'limit': 10000});
       final List<dynamic> data = response.data as List<dynamic>;
       return data.map((json) => CallLog.fromJson(json)).toList();
     } catch (e) {
