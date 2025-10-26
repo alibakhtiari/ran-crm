@@ -6,12 +6,13 @@ import android.content.ContentProviderClient
 import android.content.Context
 import android.content.SyncResult
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.plugin.common.MethodChannel
-import kotlinx.coroutines.*
+import java.util.concurrent.CountDownLatch
 
 class SyncAdapter(
     context: Context,
@@ -20,7 +21,6 @@ class SyncAdapter(
 
     companion object {
         private const val TAG = "CRMSyncAdapter"
-        private const val SYNC_CHANNEL = "com.crm.ran_crm/sync"
     }
 
     override fun onPerformSync(
@@ -30,35 +30,66 @@ class SyncAdapter(
         provider: ContentProviderClient?,
         syncResult: SyncResult?
     ) {
-        Log.d(TAG, "📱 Starting Android sync for account: ${account?.name}")
+        Log.i(TAG, "[Final Fix] Starting Android sync for account: ${account?.name} on thread: ${Thread.currentThread().name}")
+
+        val latch = CountDownLatch(1)
+        var flutterEngine: FlutterEngine? = null
+        var engineCreationError: Throwable? = null
+
+        // FlutterEngine must be created on the Main thread.
+        Handler(Looper.getMainLooper()).post {
+            Log.i(TAG, "[Final Fix] Creating FlutterEngine on thread: ${Thread.currentThread().name}.")
+            try {
+                val appContext = context.applicationContext
+                val loader = FlutterInjector.instance().flutterLoader()
+                if (!loader.initialized()) {
+                    loader.startInitialization(appContext)
+                    loader.ensureInitializationComplete(appContext, null)
+                }
+
+                flutterEngine = FlutterEngine(appContext, null, false)
+
+                val dartEntrypoint = DartExecutor.DartEntrypoint(
+                    loader.findAppBundlePath(),
+                    "syncCallback"
+                )
+                flutterEngine!!.dartExecutor.executeDartEntrypoint(dartEntrypoint)
+                Log.i(TAG, "[Final Fix] FlutterEngine created successfully.")
+            } catch (t: Throwable) {
+                Log.e(TAG, "[Final Fix] CRITICAL: FlutterEngine creation failed.", t)
+                engineCreationError = t
+            } finally {
+                latch.countDown()
+            }
+        }
 
         try {
-            // Create Flutter engine for background sync
-            val flutterLoader = FlutterInjector.instance().flutterLoader()
-            flutterLoader.startInitialization(context)
-            flutterLoader.ensureInitializationComplete(context, null)
+            Log.d(TAG, "[Final Fix] Waiting for FlutterEngine creation...")
+            latch.await()
+            Log.d(TAG, "[Final Fix] Resuming sync process.")
 
-            val flutterEngine = FlutterEngine(context)
-            val dartEntrypoint = DartExecutor.DartEntrypoint(
-                flutterLoader.findAppBundlePath(),
-                "syncCallback" // This function should be defined in Dart
-            )
+            engineCreationError?.let {
+                throw RuntimeException("FlutterEngine creation failed on main thread", it)
+            }
 
-            // For simplicity, just trigger a broadcast that the Flutter app can listen to
-            // when it's in foreground
-            val intent = android.content.Intent("com.crm.ran_crm.SYNC_REQUESTED")
-            intent.putExtra("account_name", account?.name)
-            intent.putExtra("sync_type", "auto")
-            context.sendBroadcast(intent)
+            if (flutterEngine == null) {
+                throw IllegalStateException("FlutterEngine is null after creation attempt.")
+            }
 
-            Log.d(TAG, "✅ Sync broadcast sent successfully")
-
-            // You can also use a WorkManager task here to ensure sync happens
-            // even if the app isn't running
+            Log.i(TAG, "[Final Fix] Simulating sync work and sending broadcast.")
+            context.sendBroadcast(android.content.Intent("com.crm.ran_crm.SYNC_REQUESTED"))
+            Log.i(TAG, "[Final Fix] Sync broadcast sent.")
 
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error during sync", e)
-            syncResult?.stats?.numIoExceptions = 1
+            Log.e(TAG, "[Final Fix] ❌ Error during sync execution", e)
+            syncResult?.stats?.numIoExceptions = (syncResult?.stats?.numIoExceptions ?: 0) + 1
+        } finally {
+            flutterEngine?.let { engine ->
+                Handler(Looper.getMainLooper()).post {
+                    Log.i(TAG, "[Final Fix] Destroying FlutterEngine.")
+                    engine.destroy()
+                }
+            }
         }
     }
 }
