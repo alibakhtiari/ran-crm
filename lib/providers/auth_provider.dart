@@ -161,6 +161,43 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Get user by ID
+  Future<User?> getUserById(int userId) async {
+    try {
+      // Try to get user data from API
+      final users = await apiClient.getUsers();
+      return users.firstWhere((user) => user.id == userId);
+    } catch (e) {
+      // If we can't fetch users (not admin, network error, etc.), return null
+      if (kDebugMode) {
+        print('Failed to fetch user data: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Get user email by ID (for call log display)
+  /// This should ideally come from the call log API response,
+  /// but we provide a fallback mapping for demo purposes
+  String getUserEmailById(int userId) {
+    // Check if it's the current user
+    if (_user?.id == userId) {
+      return _user!.email;
+    }
+
+    // For demo purposes, create a mapping for sample user IDs
+    // In production, this should be part of the API response
+    const sampleUserEmails = {
+      1: 'بختیاری',
+      2: 'user2@example.com',
+      3: 'john@example.com',
+      4: 'sarah@example.com',
+      5: 'mike@example.com',
+    };
+
+    return sampleUserEmails[userId] ?? 'user$userId@example.com';
+  }
+
   /// Manually trigger sync
   Future<bool> triggerSync() async {
     final userEmail = _user?.email;

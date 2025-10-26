@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/call_log.dart';
+import '../providers/auth_provider.dart';
 import '../providers/call_log_provider.dart';
 import '../providers/contact_provider.dart';
 
@@ -81,8 +82,11 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
     }
   }
 
-  Color _getCallTypeColor(String callType) {
-    switch (callType.toLowerCase()) {
+  Color _getCallDirectionColor(CallLog callLog) {
+    // Use direction field if available, fallback to callType
+    final direction = callLog.direction?.toLowerCase() ?? callLog.callType.toLowerCase();
+
+    switch (direction) {
       case 'incoming':
         return Colors.blue;
       case 'outgoing':
@@ -92,6 +96,20 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
       default:
         return Colors.grey;
     }
+  }
+
+  String _getCallDirection(CallLog callLog) {
+    return callLog.direction ?? callLog.callType;
+  }
+
+  String _getUserIdentifier(CallLog callLog, AuthProvider authProvider) {
+    // First priority: Use userEmail if provided in the API response
+    if (callLog.userEmail != null && callLog.userEmail!.isNotEmpty) {
+      return callLog.userEmail!;
+    }
+
+    // Use the AuthProvider's method to get user email by ID
+    return authProvider.getUserEmailById(callLog.userId);
   }
 
   @override
@@ -125,8 +143,8 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
           ),
         ),
         Expanded(
-          child: Consumer2<CallLogProvider, ContactProvider>(
-            builder: (context, callLogProvider, contactProvider, _) {
+          child: Consumer3<CallLogProvider, ContactProvider, AuthProvider>(
+            builder: (context, callLogProvider, contactProvider, authProvider, _) {
               if (callLogProvider.isLoading && callLogProvider.callLogs.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -181,14 +199,16 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                     final displayName = contactName ?? callLog.phoneNumber;
                     final dateFormatter = DateFormat('MMM dd, HH:mm');
 
+                    final userIdentifier = _getUserIdentifier(callLog, authProvider);
+
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: _getCallTypeColor(callLog.callType).withAlpha(51),
+                          backgroundColor: _getCallDirectionColor(callLog).withAlpha(51),
                           child: Icon(
-                            _getCallTypeIcon(callLog.callType),
-                            color: _getCallTypeColor(callLog.callType),
+                            _getCallTypeIcon(_getCallDirection(callLog)),
+                            color: _getCallDirectionColor(callLog),
                           ),
                         ),
                         title: Text(
@@ -205,8 +225,30 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                                 callLog.phoneNumber,
                                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                               ),
+                            Row(
+                              children: [
+                                Icon(
+                                  _getCallDirection(callLog).toLowerCase() == 'incoming'
+                                      ? Icons.call_received
+                                      : _getCallDirection(callLog).toLowerCase() == 'outgoing'
+                                      ? Icons.call_made
+                                      : Icons.call_missed,
+                                  size: 14,
+                                  color: _getCallDirectionColor(callLog),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_getCallDirection(callLog).toUpperCase()} • ${userIdentifier}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _getCallDirectionColor(callLog),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                             Text(
-                              '${callLog.callType.toUpperCase()} • ${_formatDuration(callLog.duration)} • ${dateFormatter.format(callLog.timestamp)}',
+                              '${_formatDuration(callLog.duration)} • ${dateFormatter.format(callLog.timestamp)}',
                               style: const TextStyle(fontSize: 12),
                             ),
                           ],
