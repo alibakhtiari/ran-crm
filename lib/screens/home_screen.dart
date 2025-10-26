@@ -14,32 +14,29 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(() {
-      setState(() {
-        _currentIndex = _tabController.index;
-      });
-    });
-  }
+  final PageController _pageController = PageController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogout(BuildContext context) async {
-    final authProvider = context.read<AuthProvider>();
-    await authProvider.logout();
-    if (!mounted) return;
-    Navigator.of(context, rootNavigator: true).pushReplacementNamed('/login');
+
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   @override
@@ -49,61 +46,98 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         final isAdmin = authProvider.isAdmin;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('RAN CRM'),
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: [
-                const Tab(
-                  icon: Icon(Icons.contacts),
-                  text: 'Contacts',
+          body: Column(
+            children: [
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                  children: [
+                    ContactsTab(searchQuery: _searchQuery),
+                    const CallLogsTab(),
+                    const SettingsTab(),
+                  ],
                 ),
-                const Tab(
-                  icon: Icon(Icons.phone),
-                  text: 'Call Logs',
-                ),
-                Tab(
-                  icon: Icon(isAdmin ? Icons.admin_panel_settings : Icons.settings),
-                  text: isAdmin ? 'Admin' : 'Settings',
-                ),
-              ],
-            ),
-            actions: [
-              PopupMenuButton(
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout),
-                        SizedBox(width: 8),
-                        Text('Logout'),
-                      ],
+              ),
+              // Search bar positioned above bottom navigation
+              Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.add),
+                      tooltip: 'Add Contact',
+                      onPressed: _currentIndex == 0 ? () => _showAddContactDialog(context) : null,
                     ),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search contacts...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value.toLowerCase();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.exit_to_app),
+                      tooltip: 'Logout',
+                      onPressed: () async {
+                        final authProvider = context.read<AuthProvider>();
+                        final navigator = Navigator.of(context, rootNavigator: true);
+                        await authProvider.logout();
+                        if (mounted) {
+                          navigator.pushReplacementNamed('/login');
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              // Bottom Navigation Bar
+              BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: _onItemTapped,
+                items: [
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.contacts),
+                    label: 'Contacts',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.phone),
+                    label: 'Call Logs',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(isAdmin ? Icons.admin_panel_settings : Icons.settings),
+                    label: isAdmin ? 'Admin' : 'Settings',
                   ),
                 ],
-                onSelected: (value) async {
-                  if (value == 'logout') {
-                    await _handleLogout(context);
-                  }
-                },
               ),
             ],
           ),
-          body: TabBarView(
-            controller: _tabController,
-            children: const [
-              ContactsTab(),
-              CallLogsTab(),
-              SettingsTab(),
-            ],
-          ),
-          floatingActionButton: _currentIndex == 0
-              ? FloatingActionButton(
-                  onPressed: () => _showAddContactDialog(context),
-                  child: const Icon(Icons.add),
-                )
-              : null,
         );
       },
     );
