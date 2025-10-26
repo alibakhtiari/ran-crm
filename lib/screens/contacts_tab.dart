@@ -53,7 +53,8 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
     try {
       await BackgroundSyncService.checkAndSync();
       if (mounted) {
-        await context.read<ContactProvider>().fetchContacts(showLoading: false);
+        final contactProvider = context.read<ContactProvider>();
+        await contactProvider.fetchContacts(showLoading: false);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -69,6 +70,7 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
 
     try {
       final authProvider = context.read<AuthProvider>();
+      final contactProvider = context.read<ContactProvider>();
       final user = authProvider.user;
 
       if (user == null) {
@@ -139,7 +141,7 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
 
       if (mounted) {
         try {
-          await context.read<ContactProvider>().fetchContacts();
+          await contactProvider.fetchContacts();
         } catch (e) {
           if (kDebugMode) {
             print('Failed to refresh contacts: $e');
@@ -236,8 +238,9 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
   Future<void> _showEditContactDialog(Contact contact) async {
     final nameController = TextEditingController(text: contact.name);
     final phoneController = TextEditingController(text: contact.phoneNumber);
+    final contactProvider = context.read<ContactProvider>();
 
-    final result = await showDialog<bool>(
+    final result = await showDialog<Contact?>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Contact'),
@@ -264,11 +267,11 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, null),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () {
               if (nameController.text.isNotEmpty &&
                   phoneController.text.isNotEmpty) {
                 final updatedContact = contact.copyWith(
@@ -276,13 +279,7 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
                   phoneNumber: phoneController.text,
                   updatedAt: DateTime.now(),
                 );
-                if (!mounted) return;
-                final success = await context
-                    .read<ContactProvider>()
-                    .updateContact(contact.id!, updatedContact);
-                if (mounted) {
-                  Navigator.pop(context, success);
-                }
+                Navigator.pop(context, updatedContact);
               }
             },
             child: const Text('Update'),
@@ -291,16 +288,22 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
       ),
     );
 
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contact updated successfully')),
-      );
+    if (result != null) {
+      final success = await contactProvider.updateContact(contact.id!, result);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Contact updated successfully')),
+        );
+      }
     }
   }
 
   Future<void> _deleteContact(Contact contact) async {
+    final contactProvider = context.read<ContactProvider>();
+    final ctx = context;
+
     final confirm = await showDialog<bool>(
-      context: context,
+      context: ctx,
       builder: (context) => AlertDialog(
         title: const Text('Delete Contact'),
         content: Text('Are you sure you want to delete ${contact.name}?'),
@@ -320,12 +323,13 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
 
     if (confirm == true) {
       if (!mounted) return;
-      final success =
-          await context.read<ContactProvider>().deleteContact(contact.id!);
-      if (mounted && success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contact deleted successfully')),
-        );
+      final success = await contactProvider.deleteContact(contact.id!);
+      if (success) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(content: Text('Contact deleted successfully')),
+          );
+        });
       }
     }
   }

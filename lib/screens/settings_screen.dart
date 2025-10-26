@@ -87,7 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     try {
                       if (value) {
                         await BackgroundSyncService.registerPeriodicSync();
-                        if (mounted) {
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Background sync enabled'),
@@ -97,7 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       } else {
                         await BackgroundSyncService.unregisterPeriodicSync();
-                        if (mounted) {
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Background sync disabled'),
@@ -108,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       }
                       setState(() => _backgroundSyncEnabled = value);
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Failed to update sync settings: $e'),
@@ -133,66 +133,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text('Current: Every $_syncIntervalHours hour${_syncIntervalHours > 1 ? 's' : ''}'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () async {
+              int tempSelected = _syncIntervalHours;
               final selected = await showDialog<int>(
                 context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Select Sync Interval'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      RadioListTile<int>(
-                        title: const Text('Every 15 minutes'),
-                        subtitle: const Text('More frequent, uses more battery'),
-                        value: 0, // Special value for 15 min
-                        groupValue: _syncIntervalHours == 0 ? 0 : _syncIntervalHours,
-                        onChanged: (value) => Navigator.pop(context, value),
+                builder: (context) => StatefulBuilder(
+                  builder: (context, setState) => AlertDialog(
+                    title: const Text('Select Sync Interval'),
+                    content: Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Every 15 minutes'),
+                          selected: tempSelected == 0,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => tempSelected = 0);
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Every 1 hour'),
+                          selected: tempSelected == 1,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => tempSelected = 1);
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Every 2 hours'),
+                          selected: tempSelected == 2,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => tempSelected = 2);
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Every 4 hours'),
+                          selected: tempSelected == 4,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => tempSelected = 4);
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Every 12 hours'),
+                          selected: tempSelected == 12,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => tempSelected = 12);
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Every 24 hours'),
+                          selected: tempSelected == 24,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => tempSelected = 24);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
                       ),
-                      RadioListTile<int>(
-                        title: const Text('Every 1 hour'),
-                        subtitle: const Text('Recommended'),
-                        value: 1,
-                        groupValue: _syncIntervalHours,
-                        onChanged: (value) => Navigator.pop(context, value),
-                      ),
-                      RadioListTile<int>(
-                        title: const Text('Every 2 hours'),
-                        value: 2,
-                        groupValue: _syncIntervalHours,
-                        onChanged: (value) => Navigator.pop(context, value),
-                      ),
-                      RadioListTile<int>(
-                        title: const Text('Every 4 hours'),
-                        value: 4,
-                        groupValue: _syncIntervalHours,
-                        onChanged: (value) => Navigator.pop(context, value),
-                      ),
-                      RadioListTile<int>(
-                        title: const Text('Every 12 hours'),
-                        value: 12,
-                        groupValue: _syncIntervalHours,
-                        onChanged: (value) => Navigator.pop(context, value),
-                      ),
-                      RadioListTile<int>(
-                        title: const Text('Every 24 hours'),
-                        subtitle: const Text('Least frequent, saves battery'),
-                        value: 24,
-                        groupValue: _syncIntervalHours,
-                        onChanged: (value) => Navigator.pop(context, value),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, tempSelected),
+                        child: const Text('OK'),
                       ),
                     ],
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel'),
-                    ),
-                  ],
                 ),
               );
 
-              if (selected != null && mounted) {
+              if (selected != null && context.mounted) {
                 await _saveSyncInterval(selected);
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -231,7 +254,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final authProvider = context.read<AuthProvider>();
                       final success = await authProvider.triggerSync();
 
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
@@ -244,7 +267,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         );
                       }
                     } catch (e) {
-                      if (mounted) {
+                      if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Sync failed: $e'),

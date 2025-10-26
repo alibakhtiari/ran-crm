@@ -54,6 +54,46 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     }
   }
 
+  Future<void> _updateBackgroundSync(BuildContext context, bool value) async {
+    setState(() => _isLoading = true);
+
+    try {
+      if (value) {
+        await BackgroundSyncService.registerPeriodicSync();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Background sync enabled'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        });
+      } else {
+        await BackgroundSyncService.unregisterPeriodicSync();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Background sync disabled'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        });
+      }
+      if (mounted) setState(() => _backgroundSyncEnabled = value);
+    } catch (e) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update sync settings: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -114,48 +154,10 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                 'Automatically sync contacts and call logs in the background',
               ),
               value: _backgroundSyncEnabled,
-              onChanged: _isLoading
+                      onChanged: _isLoading
                   ? null
                   : (value) async {
-                      setState(() => _isLoading = true);
-
-                      try {
-                        if (value) {
-                          await BackgroundSyncService.registerPeriodicSync();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Background sync enabled'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } else {
-                          await BackgroundSyncService.unregisterPeriodicSync();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Background sync disabled'),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                          }
-                        }
-                        setState(() => _backgroundSyncEnabled = value);
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed to update sync settings: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } finally {
-                        if (mounted) {
-                          setState(() => _isLoading = false);
-                        }
-                      }
+                      await _updateBackgroundSync(context, value);
                     },
             ),
 
@@ -168,66 +170,88 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
               subtitle: Text('Current: Every $_syncIntervalHours hour${_syncIntervalHours > 1 ? 's' : ''}'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () async {
+                int tempSelected = _syncIntervalHours;
                 final selected = await showDialog<int>(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Select Sync Interval'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RadioListTile<int>(
-                          title: const Text('Every 15 minutes'),
-                          subtitle: const Text('More frequent, uses more battery'),
-                          value: 0,
-                          groupValue: _syncIntervalHours == 0 ? 0 : _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
+                  builder: (context) => StatefulBuilder(
+                    builder: (context, setState) => AlertDialog(
+                      title: const Text('Select Sync Interval'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RadioMenuButton<int>(
+                            value: 0,
+                            groupValue: tempSelected,
+                            onChanged: (value) => setState(() => tempSelected = value!),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Every 15 minutes'),
+                                Text('More frequent, uses more battery', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 1,
+                            groupValue: tempSelected,
+                            onChanged: (value) => setState(() => tempSelected = value!),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Every 1 hour'),
+                                Text('Recommended', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 2,
+                            groupValue: tempSelected,
+                            onChanged: (value) => setState(() => tempSelected = value!),
+                            child: const Text('Every 2 hours'),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 4,
+                            groupValue: tempSelected,
+                            onChanged: (value) => setState(() => tempSelected = value!),
+                            child: const Text('Every 4 hours'),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 12,
+                            groupValue: tempSelected,
+                            onChanged: (value) => setState(() => tempSelected = value!),
+                            child: const Text('Every 12 hours'),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 24,
+                            groupValue: tempSelected,
+                            onChanged: (value) => setState(() => tempSelected = value!),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Every 24 hours'),
+                                Text('Least frequent, saves battery', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
                         ),
-                        RadioListTile<int>(
-                          title: const Text('Every 1 hour'),
-                          subtitle: const Text('Recommended'),
-                          value: 1,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 2 hours'),
-                          value: 2,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 4 hours'),
-                          value: 4,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 12 hours'),
-                          value: 12,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 24 hours'),
-                          subtitle: const Text('Least frequent, saves battery'),
-                          value: 24,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, tempSelected),
+                          child: const Text('OK'),
                         ),
                       ],
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                    ],
                   ),
                 );
 
                 if (selected != null && mounted) {
                   await _saveSyncInterval(selected);
-                  if (mounted) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -238,7 +262,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                         backgroundColor: Colors.green,
                       ),
                     );
-                  }
+                  });
                 }
               },
             ),
@@ -265,7 +289,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                       try {
                         final success = await authProvider.triggerSync();
 
-                        if (mounted) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -276,16 +300,16 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                               backgroundColor: success ? Colors.green : Colors.red,
                             ),
                           );
-                        }
+                        });
                       } catch (e) {
-                        if (mounted) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Sync failed: $e'),
                               backgroundColor: Colors.red,
                             ),
                           );
-                        }
+                        });
                       } finally {
                         if (mounted) {
                           setState(() => _isLoading = false);

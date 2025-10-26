@@ -35,6 +35,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  Future<void> _handleLogout(BuildContext context) async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.logout();
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pushReplacementNamed('/login');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -77,9 +84,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ],
                 onSelected: (value) async {
                   if (value == 'logout') {
-                    await context.read<AuthProvider>().logout();
-                    if (!mounted) return;
-                    Navigator.of(context).pushReplacementNamed('/login');
+                    await _handleLogout(context);
                   }
                 },
               ),
@@ -107,8 +112,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Future<void> _showAddContactDialog(BuildContext context) async {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
+    final authProvider = context.read<AuthProvider>();
+    final contactProvider = context.read<ContactProvider>();
 
-    final result = await showDialog<bool>(
+    final result = await showDialog<Contact?>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Add Contact'),
@@ -135,18 +142,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
+            onPressed: () => Navigator.pop(dialogContext, null),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () {
               if (nameController.text.isNotEmpty &&
                   phoneController.text.isNotEmpty) {
-                final authProvider = context.read<AuthProvider>();
                 final user = authProvider.user;
 
                 if (user == null) {
-                  Navigator.pop(dialogContext, false);
+                  Navigator.pop(dialogContext, null);
                   return;
                 }
 
@@ -156,12 +162,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   createdByUserId: user.id,
                   createdAt: DateTime.now(),
                 );
-                if (!context.mounted) return;
-                final success =
-                    await context.read<ContactProvider>().addContact(contact);
-                if (dialogContext.mounted) {
-                  Navigator.pop(dialogContext, success);
-                }
+                Navigator.pop(dialogContext, contact);
               }
             },
             child: const Text('Add'),
@@ -170,10 +171,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
     );
 
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contact added successfully')),
-      );
+    if (result != null) {
+      final success = await contactProvider.addContact(result);
+      if (success) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Contact added successfully')),
+          );
+        });
+      }
     }
   }
 }

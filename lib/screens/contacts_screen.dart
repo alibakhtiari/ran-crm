@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -42,7 +44,8 @@ class _ContactsScreenState extends State<ContactsScreen> {
       await BackgroundSyncService.checkAndSync();
       // Refresh contacts after auto-sync
       if (mounted) {
-        await context.read<ContactProvider>().fetchContacts();
+        final contactProvider = context.read<ContactProvider>();
+        unawaited(contactProvider.fetchContacts());
       }
     } catch (e) {
       if (kDebugMode) {
@@ -59,18 +62,19 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
     try {
       final authProvider = context.read<AuthProvider>();
+      final contactProvider = context.read<ContactProvider>();
       final user = authProvider.user;
 
       if (user == null) {
-        if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('User not authenticated'),
               backgroundColor: Colors.red,
             ),
           );
-        }
-        setState(() => _isSyncing = false);
+        });
+        if (mounted) setState(() => _isSyncing = false);
         return;
       }
 
@@ -134,7 +138,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
       // Refresh contact list
       if (mounted) {
         try {
-          await context.read<ContactProvider>().fetchContacts();
+          await contactProvider.fetchContacts();
         } catch (e) {
           if (kDebugMode) {
             print('Failed to refresh contacts: $e');
@@ -143,7 +147,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
       }
 
       // Show result
-      if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -172,7 +176,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
             ],
           ),
         );
-      }
+      });
     } catch (e) {
       if (kDebugMode) {
         print('Sync failed with error: $e');
@@ -183,7 +187,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
       }
 
       // Show error
-      if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Sync failed: $e'),
@@ -191,7 +195,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
             duration: const Duration(seconds: 5),
           ),
         );
-      }
+      });
     } finally {
       if (mounted) {
         setState(() => _isSyncing = false);
@@ -200,11 +204,14 @@ class _ContactsScreenState extends State<ContactsScreen> {
   }
 
   Future<void> _showAddContactDialog() async {
+    final ctx = context;
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
+    final authProvider = ctx.read<AuthProvider>();
+    final contactProvider = ctx.read<ContactProvider>();
 
-    final result = await showDialog<bool>(
-      context: context,
+    final result = await showDialog<Contact?>(
+      context: ctx,
       builder: (context) => AlertDialog(
         title: const Text('Add Contact'),
         content: Column(
@@ -230,18 +237,17 @@ class _ContactsScreenState extends State<ContactsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(context, null),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () {
               if (nameController.text.isNotEmpty &&
                   phoneController.text.isNotEmpty) {
-                final authProvider = context.read<AuthProvider>();
                 final user = authProvider.user;
 
                 if (user == null) {
-                  Navigator.pop(context, false);
+                  Navigator.pop(context, null);
                   return;
                 }
 
@@ -252,11 +258,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   createdAt: DateTime.now(),
                 );
 
-                final success =
-                    await context.read<ContactProvider>().addContact(contact);
-                if (context.mounted) {
-                  Navigator.pop(context, success);
-                }
+                Navigator.pop(context, contact);
               }
             },
             child: const Text('Add'),
@@ -265,16 +267,22 @@ class _ContactsScreenState extends State<ContactsScreen> {
       ),
     );
 
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contact added successfully')),
-      );
+    if (result != null) {
+      final success = await contactProvider.addContact(result);
+      if (success) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(ctx).showSnackBar(
+            const SnackBar(content: Text('Contact added successfully')),
+          );
+        });
+      }
     }
   }
 
   Future<void> _showEditContactDialog(Contact contact) async {
     final nameController = TextEditingController(text: contact.name);
     final phoneController = TextEditingController(text: contact.phoneNumber);
+    final contactProvider = context.read<ContactProvider>();
 
     final result = await showDialog<bool>(
       context: context,
@@ -316,8 +324,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
                   updatedAt: DateTime.now(),
                 );
 
-                final success = await context
-                    .read<ContactProvider>()
+                final success = await contactProvider
                     .updateContact(contact.id!, updatedContact);
                 if (context.mounted) {
                   Navigator.pop(context, success);
@@ -330,14 +337,18 @@ class _ContactsScreenState extends State<ContactsScreen> {
       ),
     );
 
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Contact updated successfully')),
-      );
+    if (result == true) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Contact updated successfully')),
+        );
+      });
     }
   }
 
   Future<void> _deleteContact(Contact contact) async {
+    final contactProvider = context.read<ContactProvider>();
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -358,12 +369,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
     );
 
     if (confirm == true) {
-      final success =
-          await context.read<ContactProvider>().deleteContact(contact.id!);
-      if (mounted && success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Contact deleted successfully')),
-        );
+      final success = await contactProvider.deleteContact(contact.id!);
+      if (success) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Contact deleted successfully')),
+          );
+        });
       }
     }
   }
@@ -429,10 +441,13 @@ class _ContactsScreenState extends State<ContactsScreen> {
               if (value == 'sync') {
                 await _syncAll();
               } else if (value == 'logout') {
-                await context.read<AuthProvider>().logout();
-                if (mounted) {
-                  Navigator.of(context).pushReplacementNamed('/login');
-                }
+                final authProvider = context.read<AuthProvider>();
+                await authProvider.logout();
+                Future.microtask(() {
+                  if (mounted) {
+                    Navigator.of(context).pushReplacementNamed('/login');
+                  }
+                });
               }
             },
           ),
