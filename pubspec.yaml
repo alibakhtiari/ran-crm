@@ -14,7 +14,7 @@ dependencies:
   dio: ^5.4.3
 
   # Secure storage for JWT
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^9.2.2
 
   # State management
   provider: ^6.1.2

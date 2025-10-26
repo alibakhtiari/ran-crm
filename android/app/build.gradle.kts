@@ -16,7 +16,7 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
     dependencies {
-        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5") // <-- ADD THIS LINE
+        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     }
 
     kotlinOptions {
@@ -26,8 +26,6 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.crm.ran_crm"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -41,6 +39,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+tasks.withType(JavaCompile::class.java) {
+    options.compilerArgs.add("-Xlint:-options")
 }
 
 flutter {
