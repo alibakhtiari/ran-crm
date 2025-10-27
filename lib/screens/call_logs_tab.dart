@@ -238,7 +238,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '${_getCallDirection(callLog).toUpperCase()} • ${userIdentifier}',
+                                  '${_getCallDirection(callLog).toUpperCase()} • $userIdentifier',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: _getCallDirectionColor(callLog),
