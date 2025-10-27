@@ -140,3 +140,7 @@ lib/generated_plugin_registrant.dart
 !/dev/ci/**/Gemfile.lock
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 devtools_options.yaml
+/macos
+/web
+/windows
+/linux
