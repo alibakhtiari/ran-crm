@@ -1,0 +1,11 @@
+name = "shared-contact-crm"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "contacts_crm"
+database_id = "2a87cbe2-52cf-4f35-8187-2b01044ea424"
+
+[vars]
+JWT_SECRET = "change-this-to-a-strong-secret-in-production-abc123xyz789"
