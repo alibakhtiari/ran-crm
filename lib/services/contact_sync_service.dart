@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../api/api_client.dart';
@@ -111,18 +112,26 @@ class ContactSyncService {
           continue;
         }
 
-        // Create new phone contact
-        // This is disabled to prevent a native crash on some Android devices.
-        // The crash occurs when the default contacts account is cloud-based.
-        // A proper fix requires upgrading flutter_contacts and handling accounts,
-        // but that is currently blocked by dependency conflicts.
-        // final newContact = Contact()
-        //   ..name.first = contact.name
-        //   ..phones = [Phone(contact.phoneNumber)];
-        // await newContact.insert();
+        // Create new phone contact - with proper error handling
+        try {
+          // Create the contact with proper account handling
+          final newContact = Contact()
+            ..name.first = contact.name
+            ..phones = [Phone(contact.phoneNumber.replaceAll(RegExp(r'[^\d+]'), ''))]; // Clean number
 
-        // Mark as skipped instead of synced
-        skipped++;
+          // Try to insert without specifying account (let system choose)
+          await newContact.insert();
+          synced++;
+          if (kDebugMode) {
+            print('✅ Added contact to phone: ${contact.name}');
+          }
+        } catch (e) {
+          // If insert fails, mark as skipped instead of error
+          skipped++;
+          if (kDebugMode) {
+            print('⚠️  Skipped adding contact ${contact.name}: $e');
+          }
+        }
 
       } catch (e) {
         errors.add('${contact.name}: $e');

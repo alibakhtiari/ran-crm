@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
-import '../services/background_sync_service.dart';
+import '../services/battery_optimization_service.dart';
 
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
@@ -13,9 +13,10 @@ class SettingsTab extends StatefulWidget {
 }
 
 class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClientMixin {
-  bool _backgroundSyncEnabled = true;
   bool _isLoading = false;
   int _syncIntervalHours = 1;
+  bool _batteryOptimizationIgnored = false;
+  bool _checkingBatteryOptimization = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -24,13 +25,13 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
   void initState() {
     super.initState();
     _loadSettings();
+    _checkBatteryOptimizationStatus();
   }
 
   Future<void> _loadSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       setState(() {
-        _backgroundSyncEnabled = prefs.getBool('background_sync_enabled') ?? true;
         _syncIntervalHours = prefs.getInt('sync_interval_hours') ?? 1;
       });
     } catch (e) {
@@ -50,6 +51,25 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     } catch (e) {
       if (kDebugMode) {
         print('Failed to save sync interval: $e');
+      }
+    }
+  }
+
+  Future<void> _checkBatteryOptimizationStatus() async {
+    setState(() => _checkingBatteryOptimization = true);
+    try {
+      final batteryService = BatteryOptimizationService();
+      _batteryOptimizationIgnored = await batteryService.isBatteryOptimizationIgnored();
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to check battery optimization status: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _checkingBatteryOptimization = false);
       }
     }
   }
@@ -117,60 +137,6 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                 ),
               ),
             ),
-
-            // Background Sync Toggle
-            SwitchListTile(
-              title: const Text('Background Sync'),
-              subtitle: const Text(
-                'Automatically sync contacts and call logs in the background',
-              ),
-              value: _backgroundSyncEnabled,
-              onChanged: _isLoading
-                  ? null
-                  : (value) async {
-                      setState(() => _isLoading = true);
-
-                      try {
-                        if (value) {
-                          await BackgroundSyncService.registerPeriodicSync();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Background sync enabled'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          }
-                        } else {
-                          await BackgroundSyncService.unregisterPeriodicSync();
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Background sync disabled'),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                          }
-                        }
-                        setState(() => _backgroundSyncEnabled = value);
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed to update sync settings: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } finally {
-                        if (mounted) {
-                          setState(() => _isLoading = false);
-                        }
-                      }
-                    },
-            ),
-
-            const Divider(),
 
             // Sync Interval Selector
             ListTile(
@@ -310,6 +276,91 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Sync failed: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isLoading = false);
+                        }
+                      }
+                    },
+            ),
+
+            const Divider(),
+
+            // Battery Optimization Section
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Battery Optimization',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+            ),
+
+            // Disable Battery Optimization Shortcut
+            ListTile(
+              leading: _checkingBatteryOptimization
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      _batteryOptimizationIgnored ? Icons.battery_charging_full : Icons.battery_alert,
+                      color: _batteryOptimizationIgnored ? Colors.green : Colors.orange,
+                    ),
+              title: const Text('Disable Battery Optimization'),
+              subtitle: Text(
+                _batteryOptimizationIgnored
+                    ? 'Battery optimization is disabled for reliable background sync'
+                    : 'Tap to disable battery optimization for better sync performance',
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: _isLoading
+                  ? null
+                  : () async {
+                      setState(() => _isLoading = true);
+
+                      try {
+                        final batteryService = BatteryOptimizationService();
+                        // Try to directly request ignoring battery optimizations
+                        final success = await batteryService.requestIgnoreBatteryOptimizations();
+
+                        if (success) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Battery optimization disabled successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                            // Re-check status after user action
+                            await Future.delayed(const Duration(seconds: 1));
+                            if (mounted) {
+                              await _checkBatteryOptimizationStatus();
+                            }
+                          }
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Failed to disable battery optimization'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
                               backgroundColor: Colors.red,
                             ),
                           );
