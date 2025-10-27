@@ -63,60 +63,61 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              // Search bar positioned above bottom navigation
-              Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.add),
-                      tooltip: 'Add Contact',
-                      onPressed: _currentIndex == 0 ? () => _showAddContactDialog(context) : null,
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search contacts...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(30),
+              // Search bar positioned above bottom navigation - hidden on admin/settings tab
+              if (_currentIndex != 2) // Hide on admin/settings tab
+                Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        tooltip: 'Add Contact',
+                        onPressed: _currentIndex == 0 ? () => _showAddContactDialog(context) : null,
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search contacts...',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value.toLowerCase();
+                            });
+                          },
                         ),
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value.toLowerCase();
-                          });
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.exit_to_app),
+                        tooltip: 'Logout',
+                        onPressed: () async {
+                          final authProvider = context.read<AuthProvider>();
+                          final navigator = Navigator.of(context, rootNavigator: true);
+                          await authProvider.logout();
+                          if (mounted) {
+                            navigator.pushReplacementNamed('/login');
+                          }
                         },
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.exit_to_app),
-                      tooltip: 'Logout',
-                      onPressed: () async {
-                        final authProvider = context.read<AuthProvider>();
-                        final navigator = Navigator.of(context, rootNavigator: true);
-                        await authProvider.logout();
-                        if (mounted) {
-                          navigator.pushReplacementNamed('/login');
-                        }
-                      },
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
               // Bottom Navigation Bar
               BottomNavigationBar(
                 currentIndex: _currentIndex,
