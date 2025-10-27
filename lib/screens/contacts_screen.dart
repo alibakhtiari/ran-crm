@@ -270,11 +270,15 @@ class _ContactsScreenState extends State<ContactsScreen> {
     if (result != null) {
       final success = await contactProvider.addContact(result);
       if (success) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ScaffoldMessenger.of(ctx).showSnackBar(
-            const SnackBar(content: Text('Contact added successfully')),
-          );
-        });
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                const SnackBar(content: Text('Contact added successfully')),
+              );
+            }
+          });
+        }
       }
     }
   }

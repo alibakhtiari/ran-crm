@@ -94,10 +94,9 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                   icon: const Icon(Icons.exit_to_app, color: Colors.red),
                   tooltip: 'Logout',
                   onPressed: () async {
-                    final authProvider = context.read<AuthProvider>();
                     final navigator = Navigator.of(context, rootNavigator: true);
-                    await authProvider.logout();
-                    if (mounted) {
+                    await context.read<AuthProvider>().logout();
+                    if (navigator.mounted) {
                       navigator.pushReplacementNamed('/login');
                     }
                   },
@@ -182,58 +181,75 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
               onTap: () async {
                 final selected = await showDialog<int>(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Select Sync Interval'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        RadioListTile<int>(
-                          title: const Text('Every 15 minutes'),
-                          subtitle: const Text('More frequent, uses more battery'),
-                          value: 0,
-                          groupValue: _syncIntervalHours == 0 ? 0 : _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 1 hour'),
-                          subtitle: const Text('Recommended'),
-                          value: 1,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 2 hours'),
-                          value: 2,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 4 hours'),
-                          value: 4,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 12 hours'),
-                          value: 12,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
-                        ),
-                        RadioListTile<int>(
-                          title: const Text('Every 24 hours'),
-                          subtitle: const Text('Least frequent, saves battery'),
-                          value: 24,
-                          groupValue: _syncIntervalHours,
-                          onChanged: (value) => Navigator.pop(context, value),
+                  builder: (context) => StatefulBuilder(
+                    builder: (context, setState) => AlertDialog(
+                      title: const Text('Select Sync Interval'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          RadioMenuButton<int>(
+                            value: 0,
+                            groupValue: _syncIntervalHours == 0 ? 0 : _syncIntervalHours,
+                            onChanged: (value) => Navigator.pop(context, value),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Every 15 minutes'),
+                                Text('More frequent, uses more battery', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 1,
+                            groupValue: _syncIntervalHours,
+                            onChanged: (value) => Navigator.pop(context, value),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Every 1 hour'),
+                                Text('Recommended', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 2,
+                            groupValue: _syncIntervalHours,
+                            onChanged: (value) => Navigator.pop(context, value),
+                            child: const Text('Every 2 hours'),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 4,
+                            groupValue: _syncIntervalHours,
+                            onChanged: (value) => Navigator.pop(context, value),
+                            child: const Text('Every 4 hours'),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 12,
+                            groupValue: _syncIntervalHours,
+                            onChanged: (value) => Navigator.pop(context, value),
+                            child: const Text('Every 12 hours'),
+                          ),
+                          RadioMenuButton<int>(
+                            value: 24,
+                            groupValue: _syncIntervalHours,
+                            onChanged: (value) => Navigator.pop(context, value),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Every 24 hours'),
+                                Text('Least frequent, saves battery', style: TextStyle(fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
                         ),
                       ],
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                    ],
                   ),
                 );
 

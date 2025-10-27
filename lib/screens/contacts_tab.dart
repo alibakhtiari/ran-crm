@@ -137,7 +137,7 @@ class _ContactsTabState extends State<ContactsTab> with AutomaticKeepAliveClient
 
     if (result != null) {
       final success = await contactProvider.updateContact(contact.id!, result);
-      if (success) {
+      if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Contact updated successfully')),
         );

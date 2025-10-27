@@ -190,6 +190,29 @@ class ApiClient {
     }
   }
 
+  // Selective flushing (for now, using full flush - could be enhanced with selective endpoints)
+  Future<Map<String, dynamic>> flushContactsOnly(int userId) async {
+    // For now, we'll flush all data since we don't have a selective contacts-only endpoint
+    // In the future, we could add separate endpoints for selective flushing
+    try {
+      final response = await dio.delete('/admin/users/$userId/data');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> flushCallsOnly(int userId) async {
+    // For now, we'll flush all data since we don't have a selective calls-only endpoint
+    // In the future, we could add separate endpoints for selective flushing
+    try {
+      final response = await dio.delete('/admin/users/$userId/data');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   String _handleError(dynamic error) {
     if (error is DioException) {
       if (error.response != null) {

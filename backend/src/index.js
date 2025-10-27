@@ -417,15 +417,10 @@ app.get('/admin/users/:id/stats', authMiddleware, adminMiddleware, async (c) => 
   }
 });
 
-// Flush user data (admin only)
+// Flush user data (admin only) - admins can flush their own data
 app.delete('/admin/users/:id/data', authMiddleware, adminMiddleware, async (c) => {
   try {
     const id = c.req.param('id');
-    const user = c.get('user');
-
-    if (parseInt(id) === user.id) {
-      return c.json({ error: 'Cannot delete your own data' }, 400);
-    }
 
     // Check if user exists
     const targetUser = await c.env.DB.prepare(

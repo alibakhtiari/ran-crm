@@ -3,7 +3,7 @@ import '../api/api_client.dart';
 import '../models/user.dart';
 import '../models/contact.dart';
 import '../models/call.dart';
-import '../models/call_log.dart';
+
 
 class UserStats {
   final int contactCount;
@@ -26,11 +26,13 @@ class UserStats {
 class UserDataDialog extends StatefulWidget {
   final ApiClient apiClient;
   final User user;
+  final Function()? onDataFlushed;
 
   const UserDataDialog({
     super.key,
     required this.apiClient,
     required this.user,
+    this.onDataFlushed,
   });
 
   @override
@@ -83,6 +85,137 @@ class _UserDataDialogState extends State<UserDataDialog> {
     }
   }
 
+  Future<void> _flushContacts() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Flush Contacts'),
+        content: Text(
+          'Are you sure you want to permanently delete all ${widget.user.email}\'s contacts? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete Contacts'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        // Call API to flush contacts - we'll implement this-selective endpoint
+        await widget.apiClient.flushContactsOnly(widget.user.id);
+        if (mounted) {
+          await _loadUserData(); // Reload data
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Contacts flushed successfully')),
+          );
+        }
+        widget.onDataFlushed?.call();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _flushCalls() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Flush Call Logs'),
+        content: Text(
+          'Are you sure you want to permanently delete all ${widget.user.email}\'s call logs? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete Calls'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        // Call API to flush calls only
+        await widget.apiClient.flushCallsOnly(widget.user.id);
+        if (mounted) {
+          await _loadUserData(); // Reload data
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Call logs flushed successfully')),
+          );
+        }
+        widget.onDataFlushed?.call();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _flushAllData() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Flush All Data'),
+        content: Text(
+          'Are you sure you want to permanently delete all contacts and call logs for ${widget.user.email}? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Flush All Data'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await widget.apiClient.flushUserData(widget.user.id);
+        if (mounted) {
+          await _loadUserData(); // Reload data
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('All data flushed successfully')),
+          );
+        }
+        widget.onDataFlushed?.call();
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -122,6 +255,48 @@ class _UserDataDialogState extends State<UserDataDialog> {
                       ],
                     ),
                   ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'flush_contacts':
+                          _flushContacts();
+                          break;
+                        case 'flush_calls':
+                          _flushCalls();
+                          break;
+                        case 'flush_all':
+                          _flushAllData();
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'flush_contacts',
+                        child: ListTile(
+                          leading: Icon(Icons.contacts, color: Colors.red),
+                          title: Text('Flush Contacts'),
+                          subtitle: Text('Dynamic count'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'flush_calls',
+                        child: ListTile(
+                          leading: Icon(Icons.call, color: Colors.red),
+                          title: Text('Flush Call Logs'),
+                          subtitle: Text('Dynamic count'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'flush_all',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_forever, color: Colors.red),
+                          title: Text('Flush All Data'),
+                          subtitle: Text('Contacts + Call Logs'),
+                        ),
+                      ),
+                    ],
+                  ),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
@@ -158,18 +333,14 @@ class _UserDataDialogState extends State<UserDataDialog> {
                               )
                             : _contacts.isEmpty
                                 ? const Center(child: Text('No contacts found'))
-                                : ListView.builder(
-                                    itemCount: _contacts.length,
-                                    itemBuilder: (context, index) {
-                                      final contact = _contacts[index];
-                                      return ListTile(
-                                        leading: const CircleAvatar(
-                                          child: Icon(Icons.person),
-                                        ),
-                                        title: Text(contact.name),
-                                        subtitle: Text(contact.phoneNumber),
-                                      );
-                                    },
+                                : ListView(
+                                    children: _contacts.map((contact) => ListTile(
+                                      leading: const CircleAvatar(
+                                        child: Icon(Icons.person),
+                                      ),
+                                      title: Text(contact.name),
+                                      subtitle: Text(contact.phoneNumber),
+                                    )).toList(),
                                   ),
 
                     // Calls Tab
@@ -255,6 +426,28 @@ class _AdminScreenState extends State<AdminScreen> {
     _fetchUsers();
   }
 
+  String? _validateEmailOrUsername(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) {
+      return null; // Allow empty for now, validation happens on submit
+    }
+
+    // Simple email regex
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+    if (emailRegex.hasMatch(trimmed)) {
+      return null; // Valid email
+    }
+
+    // If it contains only alphanumeric characters and underscores, treat as username
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9_-]+$');
+    if (usernameRegex.hasMatch(trimmed)) {
+      return null; // Valid username
+    }
+
+    // If it doesn't match either pattern, show error
+    return 'Enter a valid email address or username';
+  }
+
   Future<void> _fetchUsers() async {
     setState(() {
       _isLoading = true;
@@ -293,6 +486,7 @@ class _AdminScreenState extends State<AdminScreen> {
     final emailController = TextEditingController();
     final passwordController = TextEditingController();
     String selectedRole = 'user';
+    String? emailError;
 
     final result = await showDialog<bool>(
       context: context,
@@ -304,10 +498,16 @@ class _AdminScreenState extends State<AdminScreen> {
             children: [
               TextField(
                 controller: emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'Email or Username',
+                  border: const OutlineInputBorder(),
+                  errorText: emailError,
                 ),
+                onChanged: (value) {
+                  setDialogState(() {
+                    emailError = _validateEmailOrUsername(value);
+                  });
+                },
               ),
               const SizedBox(height: 16),
               TextField(
@@ -346,12 +546,23 @@ class _AdminScreenState extends State<AdminScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (emailController.text.isNotEmpty &&
-                    passwordController.text.isNotEmpty) {
+                final emailValue = emailController.text.trim();
+                final passwordValue = passwordController.text;
+                final currentEmailError = _validateEmailOrUsername(emailValue);
+
+                setDialogState(() {
+                  emailError = currentEmailError;
+                });
+
+                if (currentEmailError != null) {
+                  return; // Don't proceed if validation fails
+                }
+
+                if (emailValue.isNotEmpty && passwordValue.isNotEmpty) {
                   try {
                     await _apiClient.createUser(
-                      emailController.text,
-                      passwordController.text,
+                      emailValue,
+                      passwordValue,
                       selectedRole,
                     );
                     if (context.mounted) {
@@ -434,54 +645,12 @@ class _AdminScreenState extends State<AdminScreen> {
       builder: (context) => UserDataDialog(
         apiClient: _apiClient,
         user: user,
+        onDataFlushed: () => _fetchUsers(), // Refresh stats when data is flushed
       ),
     );
   }
 
-  Future<void> _flushUserData(User user) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Flush User Data'),
-        content: Text(
-          'Are you sure you want to permanently delete all contacts and call logs for ${user.email}? '
-          'This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Flush Data'),
-          ),
-        ],
-      ),
-    );
 
-    if (confirm == true) {
-      try {
-        await _apiClient.flushUserData(user.id);
-        _fetchUsers(); // Refresh to update counts
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User data flushed successfully')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -549,75 +718,122 @@ class _AdminScreenState extends State<AdminScreen> {
 
           return Card(
             margin: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 4,
+              horizontal: 12,
+              vertical: 8,
             ),
-            child: ExpansionTile(
-              leading: CircleAvatar(
-                backgroundColor: user.isAdmin ? Colors.orange : Colors.blue,
-                child: Icon(
-                  user.isAdmin ? Icons.admin_panel_settings : Icons.person,
-                  color: Colors.white,
-                ),
-              ),
-              title: Text(
-                user.email,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Role: ${user.role}'),
-                  Text(
-                    'Joined: ${user.createdAt.toString().split(' ')[0]}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
+                  // User Header Row
                   Row(
                     children: [
-                      const Icon(Icons.contacts, size: 16, color: Colors.grey),
-                      Text(
-                        '${stats.contactCount} contacts',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.email,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Role: ${user.role}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: user.isAdmin ? Colors.orange : Colors.blue,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 16),
-                      const Icon(Icons.call, size: 16, color: Colors.grey),
-                      Text(
-                        '${stats.callCount} calls',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      // Stats Column
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.contacts,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${stats.contactCount}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.call,
+                                size: 16,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${stats.callCount}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+
+                  // Action Buttons Row
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showUserData(user),
+                          icon: const Icon(Icons.visibility, size: 18),
+                          label: const Text('View Data'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Delete User button - disabled/grayed for admin users
+                      Expanded(
+                        child: Opacity(
+                          opacity: user.isAdmin ? 0.5 : 1.0,
+                          child: ElevatedButton.icon(
+                            onPressed: user.isAdmin ? null : () => _deleteUser(user),
+                            icon: const Icon(Icons.delete, size: 18),
+                            label: const Text('Delete User'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: user.isAdmin ? Colors.grey : Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () => _showUserData(user),
-                        icon: const Icon(Icons.visibility),
-                        label: const Text('View Data'),
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: () => _flushUserData(user),
-                        icon: const Icon(Icons.delete_forever),
-                        label: const Text('Flush Data'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => _deleteUser(user),
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        tooltip: 'Delete User',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           );
         },

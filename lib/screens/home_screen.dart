@@ -58,28 +58,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   children: [
                     ContactsTab(searchQuery: _searchQuery),
-                    const CallLogsTab(),
+                    CallLogsTab(searchQuery: _searchQuery),
                     const SettingsTab(),
                   ],
                 ),
               ),
-              // Search bar positioned above bottom navigation - hidden on admin/settings tab
+              // Search bar positioned above bottom navigation - configured per tab
               if (_currentIndex != 2) // Hide on admin/settings tab
                 Container(
                   color: Theme.of(context).scaffoldBackgroundColor,
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   child: Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        tooltip: 'Add Contact',
-                        onPressed: _currentIndex == 0 ? () => _showAddContactDialog(context) : null,
-                      ),
+                      // Add contact button - only on contacts tab
+                      if (_currentIndex == 0)
+                        IconButton(
+                          icon: const Icon(Icons.add),
+                          tooltip: 'Add Contact',
+                          onPressed: () => _showAddContactDialog(context),
+                        ),
+                      // Search field - on both contacts and call logs tabs
                       Expanded(
                         child: TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            hintText: 'Search contacts...',
+                            hintText: _currentIndex == 0 ? 'Search contacts...' : 'Search call logs...',
                             prefixIcon: const Icon(Icons.search),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? IconButton(
@@ -101,19 +104,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             });
                           },
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: const Icon(Icons.exit_to_app),
-                        tooltip: 'Logout',
-                        onPressed: () async {
-                          final authProvider = context.read<AuthProvider>();
-                          final navigator = Navigator.of(context, rootNavigator: true);
-                          await authProvider.logout();
-                          if (mounted) {
-                            navigator.pushReplacementNamed('/login');
-                          }
-                        },
                       ),
                     ],
                   ),
