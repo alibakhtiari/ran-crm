@@ -37,6 +37,9 @@ dependencies:
   # URL launcher for call and SMS
   url_launcher: ^6.2.6
 
+  # Device info for system settings
+  device_info_plus: ^10.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -4,52 +4,51 @@ import '../api/api_client.dart';
 import 'contact_sync_service.dart';
 import 'call_log_sync_service.dart';
 
-/// Background sync service - simplified approach without WorkManager
-/// Uses periodic checks when app is in foreground
+/// Background sync service
+/// Provides background sync functionality for contacts and call logs
 class BackgroundSyncService {
   static const String syncTaskName = 'com.crm.ran_crm.sync';
-  static const String uniqueSyncTaskName = 'periodic_sync';
 
   // Sync intervals
   static const Duration syncInterval = Duration(hours: 1);
   static DateTime? _lastSyncTime;
   static bool _syncEnabled = true;
 
-  /// Initialize service (no-op now since we removed WorkManager)
+  /// Initialize service when app starts
   static Future<void> initialize() async {
-    // No initialization needed without WorkManager
+    // Initialize sync status - always enabled
+    _syncEnabled = true;
     if (kDebugMode) {
-      print('✅ Background sync service initialized (manual sync mode)');
+      print('✅ Background sync service initialized');
     }
   }
 
-  /// Enable/disable periodic sync
+  /// Enable periodic sync (no-op since always enabled)
   static Future<void> registerPeriodicSync() async {
     _syncEnabled = true;
     if (kDebugMode) {
-      print('✅ Periodic sync enabled (will sync when app is opened)');
+      print('✅ Background sync always enabled');
     }
   }
 
-  /// Unregister periodic sync
+  /// Disable periodic sync (no-op since always enabled)
   static Future<void> unregisterPeriodicSync() async {
-    _syncEnabled = false;
+    _syncEnabled = true; // Always keep enabled
     if (kDebugMode) {
-      print('✅ Periodic sync disabled');
+      print('✅ Background sync always enabled');
     }
   }
 
-  /// Register one-time sync task
+  /// Register one-time sync task (immediate execution)
   static Future<void> registerOneTimeSync() async {
-    // Trigger immediate sync
     await performSync();
   }
 
-  /// Cancel all sync tasks
+  /// Cancel all sync tasks (no-op)
   static Future<void> cancelAllTasks() async {
-    _syncEnabled = false;
+    _syncEnabled = true; // Always keep enabled
     if (kDebugMode) {
-      print('✅ All sync tasks cancelled');
+      print('✅ Background sync always enabled');
     }
   }
 
