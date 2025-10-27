@@ -327,4 +327,128 @@ app.delete('/admin/users/:id', authMiddleware, adminMiddleware, async (c) => {
   }
 });
 
+// Get user contacts (admin only)
+app.get('/admin/users/:id/contacts', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id');
+
+    // Check if user exists
+    const user = await c.env.DB.prepare(
+      'SELECT id, email FROM users WHERE id = ?'
+    ).bind(id).first();
+
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    const contacts = await c.env.DB.prepare(
+      'SELECT * FROM contacts WHERE created_by_user_id = ? ORDER BY name ASC'
+    ).bind(id).all();
+
+    return c.json({
+      user: { id: user.id, email: user.email },
+      contacts: contacts.results || []
+    });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Get user calls (admin only)
+app.get('/admin/users/:id/calls', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id');
+
+    // Check if user exists
+    const user = await c.env.DB.prepare(
+      'SELECT id, email FROM users WHERE id = ?'
+    ).bind(id).first();
+
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    const calls = await c.env.DB.prepare(
+      'SELECT * FROM calls WHERE user_id = ? ORDER BY start_time DESC LIMIT 1000'
+    ).bind(id).all();
+
+    return c.json({
+      user: { id: user.id, email: user.email },
+      calls: calls.results || []
+    });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Get user stats (admin only)
+app.get('/admin/users/:id/stats', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id');
+
+    // Check if user exists
+    const user = await c.env.DB.prepare(
+      'SELECT id, email FROM users WHERE id = ?'
+    ).bind(id).first();
+
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Count contacts
+    const contactCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM contacts WHERE created_by_user_id = ?'
+    ).bind(id).first();
+
+    // Count calls
+    const callCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM calls WHERE user_id = ?'
+    ).bind(id).first();
+
+    return c.json({
+      user: { id: user.id, email: user.email },
+      stats: {
+        contacts: contactCount.count || 0,
+        calls: callCount.count || 0
+      }
+    });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Flush user data (admin only)
+app.delete('/admin/users/:id/data', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const id = c.req.param('id');
+    const user = c.get('user');
+
+    if (parseInt(id) === user.id) {
+      return c.json({ error: 'Cannot delete your own data' }, 400);
+    }
+
+    // Check if user exists
+    const targetUser = await c.env.DB.prepare(
+      'SELECT id, email FROM users WHERE id = ?'
+    ).bind(id).first();
+
+    if (!targetUser) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    // Delete calls first (due to foreign key constraints)
+    await c.env.DB.prepare('DELETE FROM calls WHERE user_id = ?').bind(id).run();
+
+    // Delete contacts
+    await c.env.DB.prepare('DELETE FROM contacts WHERE created_by_user_id = ?').bind(id).run();
+
+    return c.json({
+      message: 'User data flushed successfully',
+      user: { id: targetUser.id, email: targetUser.email }
+    });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 export default app;
