@@ -154,6 +154,42 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> getUserStats(int userId) async {
+    try {
+      final response = await dio.get('/admin/users/$userId/stats');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserContacts(int userId) async {
+    try {
+      final response = await dio.get('/admin/users/$userId/contacts');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserCallLogs(int userId) async {
+    try {
+      final response = await dio.get('/admin/users/$userId/calls');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> flushUserData(int userId) async {
+    try {
+      final response = await dio.delete('/admin/users/$userId/data');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   String _handleError(dynamic error) {
     if (error is DioException) {
       if (error.response != null) {
