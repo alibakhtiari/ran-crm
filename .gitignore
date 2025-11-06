@@ -145,3 +145,4 @@ devtools_options.yaml
 /windows
 /linux
 /node_modules
+*.md
