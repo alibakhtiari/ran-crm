@@ -25,7 +25,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CallLogProvider>().fetchCallLogs(showLoading: false);
+      context.read<CallLogProvider>().readAndDisplayCallLogs(showLoading: false);
     });
   }
 
@@ -119,7 +119,7 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
                 Text('Error: ${callLogProvider.errorMessage}', textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => callLogProvider.fetchCallLogs(),
+                  onPressed: () => callLogProvider.readAndDisplayCallLogs(),
                   child: const Text('Retry'),
                 ),
               ],
@@ -145,13 +145,13 @@ class _CallLogsTabState extends State<CallLogsTab> with AutomaticKeepAliveClient
         if (filteredCallLogs.isEmpty) {
           return Center(
             child: Text(widget.searchQuery.isEmpty
-                ? 'No call logs yet. Sync your phone to get started!'
+                ? 'No call logs yet. Swipe down to sync your phone!'
                 : 'No call logs found matching "${widget.searchQuery}"'),
           );
         }
 
         return RefreshIndicator(
-          onRefresh: () => callLogProvider.fetchCallLogs(),
+          onRefresh: () => callLogProvider.readAndDisplayCallLogs(),
           child: ListView.builder(
             itemCount: filteredCallLogs.length,
             itemBuilder: (context, index) {

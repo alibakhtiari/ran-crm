@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'dart:async';
 import '../providers/auth_provider.dart';
 import '../services/battery_optimization_service.dart';
 
@@ -17,6 +19,8 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
   int _syncIntervalHours = 1;
   bool _batteryOptimizationIgnored = false;
   bool _checkingBatteryOptimization = false;
+  DateTime _lastSyncTime = DateTime.now();
+  Timer? _timeUpdateTimer;
 
   @override
   bool get wantKeepAlive => true;
@@ -26,6 +30,34 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     super.initState();
     _loadSettings();
     _checkBatteryOptimizationStatus();
+    _startTimeUpdates();
+  }
+
+  @override
+  void dispose() {
+    _timeUpdateTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimeUpdates() {
+    // Update time every minute
+    _timeUpdateTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _lastSyncTime = DateTime.now();
+        });
+      }
+    });
+  }
+
+  // Calculate next sync time based on interval
+  DateTime getNextSyncTime() {
+    if (_syncIntervalHours == 0) {
+      // 15 minutes = 0 hours (we use 0 to represent 15 minutes)
+      return _lastSyncTime.add(const Duration(minutes: 15));
+    } else {
+      return _lastSyncTime.add(Duration(hours: _syncIntervalHours));
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -33,6 +65,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
       final prefs = await SharedPreferences.getInstance();
       setState(() {
         _syncIntervalHours = prefs.getInt('sync_interval_hours') ?? 1;
+        _lastSyncTime = DateTime.now();
       });
     } catch (e) {
       if (kDebugMode) {
@@ -47,6 +80,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
       await prefs.setInt('sync_interval_hours', hours);
       setState(() {
         _syncIntervalHours = hours;
+        _lastSyncTime = DateTime.now(); // Reset sync time when interval changes
       });
     } catch (e) {
       if (kDebugMode) {
@@ -82,6 +116,10 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
       builder: (context, authProvider, _) {
         final isAdmin = authProvider.isAdmin;
         final user = authProvider.user;
+        final currentTime = DateFormat('HH:mm').format(_lastSyncTime);
+        final nextSyncTime = getNextSyncTime();
+        final nextSyncTimeFormatted = DateFormat('HH:mm').format(nextSyncTime);
+        final timeUntilNextSync = nextSyncTime.difference(_lastSyncTime);
 
         return ListView(
           children: [
@@ -142,7 +180,9 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
             ListTile(
               leading: const Icon(Icons.schedule, color: Colors.blue),
               title: const Text('Sync Interval'),
-              subtitle: Text('Current: Every $_syncIntervalHours hour${_syncIntervalHours > 1 ? 's' : ''}'),
+              subtitle: Text(_syncIntervalHours == 0 
+                ? 'Current: Every 15 minutes' 
+                : 'Current: Every $_syncIntervalHours hour${_syncIntervalHours > 1 ? 's' : ''}'),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               onTap: () async {
                 final selected = await showDialog<int>(
@@ -237,6 +277,56 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
               },
             ),
 
+            // 15-minute sync time display
+            if (_syncIntervalHours == 0) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.access_time, color: Colors.blue),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Current time: $currentTime',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Next sync at: $nextSyncTimeFormatted',
+                            style: TextStyle(
+                              color: Colors.blue.shade700,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Time remaining: ${timeUntilNextSync.inHours}h ${timeUntilNextSync.inMinutes % 60}m',
+                            style: TextStyle(
+                              color: Colors.blue.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             const Divider(),
 
             // Manual Sync Button
@@ -255,6 +345,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                   ? null
                   : () async {
                       setState(() => _isLoading = true);
+                      setState(() => _lastSyncTime = DateTime.now()); // Update sync time
 
                       try {
                         final success = await authProvider.triggerSync();
@@ -329,7 +420,6 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
 
                       try {
                         final batteryService = BatteryOptimizationService();
-                        // Try to directly request ignoring battery optimizations
                         final success = await batteryService.requestIgnoreBatteryOptimizations();
 
                         if (success) {
@@ -340,7 +430,6 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                                 backgroundColor: Colors.green,
                               ),
                             );
-                            // Re-check status after user action
                             await Future.delayed(const Duration(seconds: 1));
                             if (mounted) {
                               await _checkBatteryOptimizationStatus();
@@ -399,8 +488,6 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
               ),
               const Divider(),
             ],
-
-
           ],
         );
       },

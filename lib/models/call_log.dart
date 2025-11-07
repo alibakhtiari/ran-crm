@@ -28,14 +28,30 @@ class CallLog {
       id: json['id'] as int?,
       phoneNumber: json['phone_number'] as String? ?? '',
       callType: json['call_type'] as String? ?? '',
-      direction: json['direction'] as String?,
+      direction: json['direction'] as String? ?? _inferDirectionFromCallType(json['call_type'] as String?),
       duration: json['duration'] as int? ?? 0,
-      timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : DateTime.now(),
+      timestamp: json['start_time'] != null 
+          ? DateTime.parse(json['start_time'] as String) 
+          : (json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : DateTime.now()),
       userId: json['user_id'] as int,
       contactName: json['contact_name'] as String?,
       userEmail: json['user_email'] as String?,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now(),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at'] as String) 
+          : DateTime.now(),
     );
+  }
+
+  static String _inferDirectionFromCallType(String? callType) {
+    if (callType == null) return 'incoming';
+    
+    final type = callType.toLowerCase();
+    if (type.contains('incoming') || type.contains('received')) return 'incoming';
+    if (type.contains('outgoing') || type.contains('made')) return 'outgoing';
+    if (type.contains('missed')) return 'missed';
+    
+    // Default to incoming for backward compatibility
+    return 'incoming';
   }
 
   Map<String, dynamic> toJson() {
