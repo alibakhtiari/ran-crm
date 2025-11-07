@@ -70,7 +70,7 @@ const adminMiddleware = async (c, next) => {
 
 // Health check
 app.get('/', (c) => {
-  return c.json({ message: 'Shared Contact CRM API', version: '1.0.0' });
+  return c.json({ message: 'Shared Contact CRM API', version: '2.0.0', features: ['UUID duplicate prevention', 'Missed call support'] });
 });
 
 // Login
@@ -222,30 +222,42 @@ app.delete('/contacts/:id', authMiddleware, async (c) => {
   }
 });
 
-// Get all calls with user filtering
+// Get all calls with user filtering and UUID support
 app.get('/calls', authMiddleware, async (c) => {
   try {
     const user = c.get('user');
     const url = new URL(c.req.url);
     const userId = url.searchParams.get('user_id');
-    
+    const direction = url.searchParams.get('direction'); // Filter by direction (incoming, outgoing, missed)
+
     let query = 'SELECT * FROM calls';
     let params = [];
-    
+    let conditions = [];
+
     // If user_id is provided and user is not admin, filter by user_id
     if (userId && user.role !== 'admin') {
-      query += ' WHERE user_id = ?';
+      conditions.push('user_id = ?');
       params.push(parseInt(userId));
     }
     // If user is admin and no user_id is provided, show all calls
     // If user is admin and user_id is provided, show calls for that specific user
     else if (userId && user.role === 'admin') {
-      query += ' WHERE user_id = ?';
+      conditions.push('user_id = ?');
       params.push(parseInt(userId));
     }
-    
+
+    // Add direction filter if provided
+    if (direction && ['incoming', 'outgoing', 'missed'].includes(direction)) {
+      conditions.push('direction = ?');
+      params.push(direction);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
     query += ' ORDER BY start_time DESC LIMIT 100';
-    
+
     const calls = await c.env.DB.prepare(query).bind(...params).all();
 
     return c.json(calls.results || []);
@@ -254,11 +266,86 @@ app.get('/calls', authMiddleware, async (c) => {
   }
 });
 
-// Create call log
+// Get call statistics
+app.get('/calls/stats', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const url = new URL(c.req.url);
+    const userId = url.searchParams.get('user_id');
+
+    let whereClause = '';
+    let params = [];
+
+    if (userId && user.role !== 'admin') {
+      whereClause = 'WHERE user_id = ?';
+      params.push(user.id);
+    } else if (userId && user.role === 'admin') {
+      whereClause = 'WHERE user_id = ?';
+      params.push(parseInt(userId));
+    }
+
+    // Get total count
+    const totalResult = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM calls ${whereClause}`
+    ).bind(...params).first();
+
+    // Get incoming count
+    const incomingResult = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM calls ${whereClause ? whereClause + ' AND' : 'WHERE'} direction = 'incoming'`
+    ).bind(...params).first();
+
+    // Get outgoing count
+    const outgoingResult = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM calls ${whereClause ? whereClause + ' AND' : 'WHERE'} direction = 'outgoing'`
+    ).bind(...params).first();
+
+    // Get missed count
+    const missedResult = await c.env.DB.prepare(
+      `SELECT COUNT(*) as count FROM calls ${whereClause ? whereClause + ' AND' : 'WHERE'} direction = 'missed'`
+    ).bind(...params).first();
+
+    return c.json({
+      total: totalResult.count || 0,
+      incoming: incomingResult.count || 0,
+      outgoing: outgoingResult.count || 0,
+      missed: missedResult.count || 0
+    });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Create call log with UUID duplicate prevention
 app.post('/calls', authMiddleware, async (c) => {
   try {
-    const { phone_number, direction, start_time, duration } = await c.req.json();
+    const { phone_number, direction, start_time, duration, uuid } = await c.req.json();
     const user = c.get('user');
+
+    // Validate direction
+    const validDirections = ['incoming', 'outgoing', 'missed'];
+    if (!validDirections.includes(direction)) {
+      return c.json({ error: 'Invalid direction. Must be one of: ' + validDirections.join(', ') }, 400);
+    }
+
+    // Check for duplicate using UUID if provided
+    if (uuid) {
+      const existingByUuid = await c.env.DB.prepare(
+        'SELECT id FROM calls WHERE uuid = ?'
+      ).bind(uuid).first();
+
+      if (existingByUuid) {
+        return c.json({ error: 'Call log already exists (duplicate UUID)' }, 409);
+      }
+    }
+
+    // Also check for duplicates by phone number and timestamp (fallback)
+    const existingByTime = await c.env.DB.prepare(
+      'SELECT id FROM calls WHERE phone_number = ? AND start_time = ?'
+    ).bind(phone_number, start_time).first();
+
+    if (existingByTime) {
+      return c.json({ error: 'Call log already exists' }, 409);
+    }
 
     // Try to find matching contact
     const contact = await c.env.DB.prepare(
@@ -266,8 +353,9 @@ app.post('/calls', authMiddleware, async (c) => {
     ).bind(phone_number).first();
 
     const result = await c.env.DB.prepare(
-      'INSERT INTO calls (contact_id, user_id, phone_number, direction, start_time, duration) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO calls (uuid, contact_id, user_id, phone_number, direction, start_time, duration) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).bind(
+      uuid || null, // Store UUID if provided
       contact?.id || null,
       user.id,
       phone_number,
@@ -281,6 +369,84 @@ app.post('/calls', authMiddleware, async (c) => {
     ).bind(result.meta.last_row_id).first();
 
     return c.json(call);
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Bulk create calls (for efficient sync)
+app.post('/calls/bulk', authMiddleware, async (c) => {
+  try {
+    const { calls } = await c.req.json();
+    const user = c.get('user');
+
+    if (!Array.isArray(calls)) {
+      return c.json({ error: 'Calls must be an array' }, 400);
+    }
+
+    const results = {
+      created: 0,
+      skipped: 0,
+      errors: []
+    };
+
+    for (const callData of calls) {
+      try {
+        const { phone_number, direction, start_time, duration, uuid } = callData;
+
+        // Validate direction
+        const validDirections = ['incoming', 'outgoing', 'missed'];
+        if (!validDirections.includes(direction)) {
+          results.errors.push({ call: callData, error: 'Invalid direction' });
+          continue;
+        }
+
+        // Check for duplicate using UUID if provided
+        if (uuid) {
+          const existingByUuid = await c.env.DB.prepare(
+            'SELECT id FROM calls WHERE uuid = ?'
+          ).bind(uuid).first();
+
+          if (existingByUuid) {
+            results.skipped++;
+            continue;
+          }
+        }
+
+        // Also check for duplicates by phone number and timestamp (fallback)
+        const existingByTime = await c.env.DB.prepare(
+          'SELECT id FROM calls WHERE phone_number = ? AND start_time = ?'
+        ).bind(phone_number, start_time).first();
+
+        if (existingByTime) {
+          results.skipped++;
+          continue;
+        }
+
+        // Try to find matching contact
+        const contact = await c.env.DB.prepare(
+          'SELECT id FROM contacts WHERE phone_number = ?'
+        ).bind(phone_number).first();
+
+        await c.env.DB.prepare(
+          'INSERT INTO calls (uuid, contact_id, user_id, phone_number, direction, start_time, duration) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+          uuid || null,
+          contact?.id || null,
+          user.id,
+          phone_number,
+          direction,
+          start_time,
+          duration || 0
+        ).run();
+
+        results.created++;
+      } catch (err) {
+        results.errors.push({ call: callData, error: err.message });
+      }
+    }
+
+    return c.json(results);
   } catch (err) {
     return c.json({ error: err.message }, 500);
   }
@@ -425,11 +591,29 @@ app.get('/admin/users/:id/stats', authMiddleware, adminMiddleware, async (c) => 
       'SELECT COUNT(*) as count FROM calls WHERE user_id = ?'
     ).bind(id).first();
 
+    // Count calls by direction
+    const incomingCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM calls WHERE user_id = ? AND direction = "incoming"'
+    ).bind(id).first();
+
+    const outgoingCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM calls WHERE user_id = ? AND direction = "outgoing"'
+    ).bind(id).first();
+
+    const missedCount = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM calls WHERE user_id = ? AND direction = "missed"'
+    ).bind(id).first();
+
     return c.json({
       user: { id: user.id, name: user.name, email: user.email },
       stats: {
         contacts: contactCount.count || 0,
-        calls: callCount.count || 0
+        calls: {
+          total: callCount.count || 0,
+          incoming: incomingCount.count || 0,
+          outgoing: outgoingCount.count || 0,
+          missed: missedCount.count || 0
+        }
       }
     });
   } catch (err) {
