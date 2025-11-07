@@ -1,14 +1,16 @@
 class Call {
   final int? id;
+  final String? uuid; // UUID for duplicate prevention
   final int? contactId;
   final int userId;
   final String phoneNumber;
-  final String direction; // 'incoming' or 'outgoing'
+  final String direction; // 'incoming', 'outgoing', or 'missed'
   final DateTime startTime;
   final int duration; // in seconds
 
   Call({
     this.id,
+    this.uuid,
     this.contactId,
     required this.userId,
     required this.phoneNumber,
@@ -20,6 +22,7 @@ class Call {
   factory Call.fromJson(Map<String, dynamic> json) {
     return Call(
       id: json['id'] as int?,
+      uuid: json['uuid'] as String?,
       contactId: json['contact_id'] as int?,
       userId: json['user_id'] as int,
       phoneNumber: json['phone_number'] as String,
@@ -32,6 +35,7 @@ class Call {
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
+      if (uuid != null) 'uuid': uuid,
       if (contactId != null) 'contact_id': contactId,
       'user_id': userId,
       'phone_number': phoneNumber,

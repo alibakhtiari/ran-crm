@@ -40,6 +40,9 @@ dependencies:
   # Device info for system settings
   device_info_plus: ^10.1.0
 
+  # UUID generation for duplicate prevention
+  uuid: ^4.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

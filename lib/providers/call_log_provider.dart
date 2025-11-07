@@ -6,18 +6,25 @@ import '../models/call_log.dart';
 import '../models/call.dart';
 import '../models/user.dart';
 import '../services/local_database_service.dart';
+import '../services/call_log_sync_service.dart';
 
 class CallLogProvider extends ChangeNotifier {
   final ApiClient apiClient;
   final LocalDatabaseService _localDb = LocalDatabaseService();
+  final CallLogSyncService _syncService = CallLogSyncService();
 
   List<CallLog> _callLogs = [];
   bool _isLoading = false;
   String? _errorMessage;
+  int _syncProgress = 0;
+  int _syncTotal = 0;
 
   List<CallLog> get callLogs => _callLogs;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get syncProgress => _syncProgress;
+  int get syncTotal => _syncTotal;
+  double get syncProgressPercent => _syncTotal > 0 ? _syncProgress / _syncTotal : 0.0;
 
   CallLogProvider({ApiClient? apiClient})
       : apiClient = apiClient ?? ApiClient() {
@@ -41,6 +48,7 @@ class CallLogProvider extends ChangeNotifier {
   CallLog _convertCallToCallLog(Call call, {String? userEmail}) {
     return CallLog(
       id: call.id,
+      uuid: call.uuid ?? '', // Handle UUID from server
       phoneNumber: call.phoneNumber,
       callType: call.direction,
       direction: call.direction,
@@ -53,7 +61,7 @@ class CallLogProvider extends ChangeNotifier {
     );
   }
 
-  /// Read call logs from phone and display immediately, then sync to server
+  /// Read call logs from phone and display immediately, then sync to server with UUID
   Future<void> readAndDisplayCallLogs({bool showLoading = true}) async {
     try {
       if (showLoading) {
@@ -135,7 +143,7 @@ class CallLogProvider extends ChangeNotifier {
         }
       }
 
-      // Update local database
+      // Update local database efficiently with batch operation
       await _localDb.clearCallLogs();
       await _localDb.insertCallLogs(callLogs);
 
@@ -148,7 +156,7 @@ class CallLogProvider extends ChangeNotifier {
         print('Displaying ${callLogs.length} call logs from phone');
       }
 
-      // Start background sync to server
+      // Start background sync to server with UUID-based duplicate prevention
       _syncToServerInBackground();
     } catch (e) {
       _errorMessage = e.toString();
@@ -174,7 +182,7 @@ class CallLogProvider extends ChangeNotifier {
           .map((call) => _convertCallToCallLog(call, userEmail: user.email))
           .toList();
 
-      // Update local cache
+      // Update local cache with batch operation
       await _localDb.clearCallLogs();
       await _localDb.insertCallLogs(serverCallLogs);
 
@@ -211,7 +219,7 @@ class CallLogProvider extends ChangeNotifier {
           .map((call) => _convertCallToCallLog(call))
           .toList();
 
-      // Update local cache
+      // Update local cache with batch operation
       await _localDb.clearCallLogs();
       await _localDb.insertCallLogs(serverCallLogs);
 
@@ -231,84 +239,69 @@ class CallLogProvider extends ChangeNotifier {
     }
   }
 
-  /// Sync call logs to server in background (non-blocking) with duplicate detection
+  /// Sync call logs to server in background (non-blocking) with UUID-based duplicate detection
   Future<void> _syncToServerInBackground() async {
     try {
-      int synced = 0;
-      int skipped = 0;
-      final List<String> errors = [];
-
-      // First, get existing call logs from server to avoid duplicates
-      List<CallLog> existingServerCallLogs = [];
-      try {
-        existingServerCallLogs = await apiClient.getCallLogs();
-        if (kDebugMode) {
-          print(
-              'Found ${existingServerCallLogs.length} existing call logs on server');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('Failed to get existing call logs from server: $e');
-        }
-        // Continue with sync anyway, but will have more duplicates
-      }
-
-      // Create a set of existing entries for faster lookup
-      final Set<String> existingKeys = existingServerCallLogs
-          .map((call) =>
-              '${call.phoneNumber}_${call.timestamp.millisecondsSinceEpoch}_${call.direction}')
-          .toSet();
-
-      for (final callLog in _callLogs) {
-        try {
-          // Create unique key for this call log
-          final callKey =
-              '${callLog.phoneNumber}_${callLog.timestamp.millisecondsSinceEpoch}_${callLog.direction}';
-
-          // Skip if already exists on server
-          if (existingKeys.contains(callKey)) {
-            skipped++;
-            if (kDebugMode) {
-              print(
-                  'Skipping duplicate call: ${callLog.phoneNumber} at ${callLog.timestamp}');
-            }
-            continue;
-          }
-
-          // Create Call model for server
-          final call = Call(
-            phoneNumber: callLog.phoneNumber,
-            direction: callLog.direction ?? 'incoming',
-            startTime: callLog.timestamp,
-            duration: callLog.duration,
-            userId: callLog.userId,
-          );
-
-          // Try to sync to server
-          await apiClient.createCall(call);
-          synced++;
-
-          if (kDebugMode) {
-            print(
-                'Synced call log: ${callLog.phoneNumber} at ${callLog.timestamp}');
-          }
-        } catch (e) {
-          // Handle any other errors
-          errors.add('${callLog.phoneNumber}: $e');
-          if (kDebugMode) {
-            print('Error syncing call log ${callLog.phoneNumber}: $e');
-          }
-        }
-      }
+      // Use the improved sync service with batch processing
+      final result = await _syncService.batchSyncCallLogs(
+        1, // userId
+        batchSize: 25, // Smaller batches for better performance
+        onProgress: (processed, total) {
+          _syncProgress = processed;
+          _syncTotal = total;
+          notifyListeners();
+        },
+      );
 
       if (kDebugMode) {
         print(
-            'Background sync completed: $synced synced, $skipped skipped, ${errors.length} errors');
+            'Background sync completed: ${result.synced} synced, ${result.skipped} skipped, ${result.failed} failed');
       }
+
+      // Reset progress after sync
+      _syncProgress = 0;
+      _syncTotal = 0;
+      notifyListeners();
     } catch (e) {
       if (kDebugMode) {
         print('Background sync failed: $e');
       }
+      _syncProgress = 0;
+      _syncTotal = 0;
+      notifyListeners();
+    }
+  }
+
+  /// Manually trigger sync with progress tracking
+  Future<BatchSyncResult> syncCallLogsManually(int userId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final result = await _syncService.batchSyncCallLogs(
+        userId,
+        batchSize: 25,
+        onProgress: (processed, total) {
+          _syncProgress = processed;
+          _syncTotal = total;
+          notifyListeners();
+        },
+      );
+
+      _isLoading = false;
+      _syncProgress = 0;
+      _syncTotal = 0;
+      notifyListeners();
+
+      return result;
+    } catch (e) {
+      _errorMessage = e.toString();
+      _isLoading = false;
+      _syncProgress = 0;
+      _syncTotal = 0;
+      notifyListeners();
+      rethrow;
     }
   }
 
@@ -324,7 +317,7 @@ class CallLogProvider extends ChangeNotifier {
       // Fetch from server
       final serverCallLogs = await apiClient.getCallLogs();
 
-      // Update local cache
+      // Update local cache with batch operation
       await _localDb.clearCallLogs();
       await _localDb.insertCallLogs(serverCallLogs);
 
@@ -344,8 +337,46 @@ class CallLogProvider extends ChangeNotifier {
     }
   }
 
+  /// Get call logs by direction (missed, incoming, outgoing)
+  Future<List<CallLog>> getCallLogsByDirection(String direction) async {
+    return await _localDb.getCallLogs(direction: direction);
+  }
+
+  /// Get call statistics
+  Future<Map<String, int>> getCallStatistics() async {
+    try {
+      final stats = await _syncService.getCallStatistics();
+      return stats;
+    } catch (e) {
+      return {'total': 0, 'incoming': 0, 'outgoing': 0, 'missed': 0};
+    }
+  }
+
+  /// Refresh call logs from phone and server
+  Future<void> refreshCallLogs() async {
+    await readAndDisplayCallLogs();
+  }
+
+  /// Check if a call log already exists by UUID
+  Future<bool> callLogExists(String uuid) async {
+    return await _localDb.callLogExists(uuid);
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  /// Filter call logs by direction
+  List<CallLog> getFilteredCallLogs(String? direction) {
+    if (direction == null || direction.isEmpty) {
+      return _callLogs;
+    }
+    return _callLogs.where((call) => call.direction == direction).toList();
+  }
+
+  /// Get unique call directions available
+  List<String> getAvailableDirections() {
+    return _callLogs.map((call) => call.direction ?? 'incoming').toSet().toList();
   }
 }
