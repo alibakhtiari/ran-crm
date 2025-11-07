@@ -93,7 +93,7 @@ app.post('/login', async (c) => {
     }
 
     const token = createJWT(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, name: user.name, email: user.email, role: user.role },
       c.env.JWT_SECRET
     );
 
@@ -101,6 +101,7 @@ app.post('/login', async (c) => {
       token,
       user: {
         id: user.id,
+        name: user.name,
         email: user.email,
         role: user.role,
         created_at: user.created_at
@@ -270,7 +271,7 @@ app.post('/calls', authMiddleware, async (c) => {
 app.get('/admin/users', authMiddleware, adminMiddleware, async (c) => {
   try {
     const users = await c.env.DB.prepare(
-      'SELECT id, email, role, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC'
     ).all();
 
     return c.json(users.results || []);
@@ -282,7 +283,7 @@ app.get('/admin/users', authMiddleware, adminMiddleware, async (c) => {
 // Create user (admin only)
 app.post('/admin/users', authMiddleware, adminMiddleware, async (c) => {
   try {
-    const { email, password, role } = await c.req.json();
+    const { name, email, password, role } = await c.req.json();
 
     // Check if email already exists
     const existing = await c.env.DB.prepare(
@@ -296,11 +297,11 @@ app.post('/admin/users', authMiddleware, adminMiddleware, async (c) => {
     const hash = bcrypt.hashSync(password, 10);
 
     const result = await c.env.DB.prepare(
-      'INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, ?, datetime("now"))'
-    ).bind(email, hash, role || 'user').run();
+      'INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, datetime("now"))'
+    ).bind(name, email, hash, role || 'user').run();
 
     const user = await c.env.DB.prepare(
-      'SELECT id, email, role, created_at FROM users WHERE id = ?'
+      'SELECT id, name, email, role, created_at FROM users WHERE id = ?'
     ).bind(result.meta.last_row_id).first();
 
     return c.json(user);
@@ -334,7 +335,7 @@ app.get('/admin/users/:id/contacts', authMiddleware, adminMiddleware, async (c) 
 
     // Check if user exists
     const user = await c.env.DB.prepare(
-      'SELECT id, email FROM users WHERE id = ?'
+      'SELECT id, name, email FROM users WHERE id = ?'
     ).bind(id).first();
 
     if (!user) {
@@ -346,7 +347,7 @@ app.get('/admin/users/:id/contacts', authMiddleware, adminMiddleware, async (c) 
     ).bind(id).all();
 
     return c.json({
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email },
       contacts: contacts.results || []
     });
   } catch (err) {
@@ -361,7 +362,7 @@ app.get('/admin/users/:id/calls', authMiddleware, adminMiddleware, async (c) => 
 
     // Check if user exists
     const user = await c.env.DB.prepare(
-      'SELECT id, email FROM users WHERE id = ?'
+      'SELECT id, name, email FROM users WHERE id = ?'
     ).bind(id).first();
 
     if (!user) {
@@ -373,7 +374,7 @@ app.get('/admin/users/:id/calls', authMiddleware, adminMiddleware, async (c) => 
     ).bind(id).all();
 
     return c.json({
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email },
       calls: calls.results || []
     });
   } catch (err) {
@@ -388,7 +389,7 @@ app.get('/admin/users/:id/stats', authMiddleware, adminMiddleware, async (c) => 
 
     // Check if user exists
     const user = await c.env.DB.prepare(
-      'SELECT id, email FROM users WHERE id = ?'
+      'SELECT id, name, email FROM users WHERE id = ?'
     ).bind(id).first();
 
     if (!user) {
@@ -406,7 +407,7 @@ app.get('/admin/users/:id/stats', authMiddleware, adminMiddleware, async (c) => 
     ).bind(id).first();
 
     return c.json({
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email },
       stats: {
         contacts: contactCount.count || 0,
         calls: callCount.count || 0
@@ -424,7 +425,7 @@ app.delete('/admin/users/:id/data', authMiddleware, adminMiddleware, async (c) =
 
     // Check if user exists
     const targetUser = await c.env.DB.prepare(
-      'SELECT id, email FROM users WHERE id = ?'
+      'SELECT id, name, email FROM users WHERE id = ?'
     ).bind(id).first();
 
     if (!targetUser) {
@@ -439,7 +440,7 @@ app.delete('/admin/users/:id/data', authMiddleware, adminMiddleware, async (c) =
 
     return c.json({
       message: 'User data flushed successfully',
-      user: { id: targetUser.id, email: targetUser.email }
+      user: { id: targetUser.id, name: targetUser.name, email: targetUser.email }
     });
   } catch (err) {
     return c.json({ error: err.message }, 500);

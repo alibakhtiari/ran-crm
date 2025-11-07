@@ -1,6 +1,7 @@
 -- Users table
 CREATE TABLE users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   role TEXT CHECK(role IN ('admin','user')) DEFAULT 'user',
