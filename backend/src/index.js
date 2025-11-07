@@ -222,12 +222,31 @@ app.delete('/contacts/:id', authMiddleware, async (c) => {
   }
 });
 
-// Get all calls
+// Get all calls with user filtering
 app.get('/calls', authMiddleware, async (c) => {
   try {
-    const calls = await c.env.DB.prepare(
-      'SELECT * FROM calls ORDER BY start_time DESC LIMIT 100'
-    ).all();
+    const user = c.get('user');
+    const url = new URL(c.req.url);
+    const userId = url.searchParams.get('user_id');
+    
+    let query = 'SELECT * FROM calls';
+    let params = [];
+    
+    // If user_id is provided and user is not admin, filter by user_id
+    if (userId && user.role !== 'admin') {
+      query += ' WHERE user_id = ?';
+      params.push(parseInt(userId));
+    }
+    // If user is admin and no user_id is provided, show all calls
+    // If user is admin and user_id is provided, show calls for that specific user
+    else if (userId && user.role === 'admin') {
+      query += ' WHERE user_id = ?';
+      params.push(parseInt(userId));
+    }
+    
+    query += ' ORDER BY start_time DESC LIMIT 100';
+    
+    const calls = await c.env.DB.prepare(query).bind(...params).all();
 
     return c.json(calls.results || []);
   } catch (err) {
