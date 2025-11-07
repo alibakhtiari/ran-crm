@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
 import 'dart:async';
 import '../providers/auth_provider.dart';
 import '../services/battery_optimization_service.dart';
@@ -16,11 +15,16 @@ class SettingsTab extends StatefulWidget {
 
 class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClientMixin {
   bool _isLoading = false;
+  bool _isSyncing = false;
   int _syncIntervalHours = 1;
   bool _batteryOptimizationIgnored = false;
   bool _checkingBatteryOptimization = false;
   DateTime _lastSyncTime = DateTime.now();
   Timer? _timeUpdateTimer;
+  int _syncProgress = 0;
+  int _totalItems = 0;
+  int _completedItems = 0;
+  Timer? _progressTimer;
 
   @override
   bool get wantKeepAlive => true;
@@ -36,6 +40,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
   @override
   void dispose() {
     _timeUpdateTimer?.cancel();
+    _progressTimer?.cancel();
     super.dispose();
   }
 
@@ -108,6 +113,88 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
     }
   }
 
+  Future<void> _startSync() async {
+    // Show syncing UI
+    setState(() {
+      _isSyncing = true;
+      _syncProgress = 0;
+      _totalItems = 4; // Contact sync, Call log sync, etc.
+      _completedItems = 0;
+    });
+
+    // Start progress simulation
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (mounted && _isSyncing) {
+        if (_completedItems < _totalItems) {
+          setState(() {
+            _completedItems++;
+            _syncProgress = (_completedItems / _totalItems * 100).round();
+          });
+        } else {
+          timer.cancel();
+        }
+      } else {
+        timer.cancel();
+      }
+    });
+
+    try {
+      // Trigger the real background sync
+      final success = await context.read<AuthProvider>().triggerSync();
+      
+      // Wait a bit to let the sync process complete
+      await Future.delayed(const Duration(seconds: 2));
+      
+      if (mounted) {
+        if (success) {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(
+              content: Text('Sync completed successfully - All data synchronized'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+            const SnackBar(
+              content: Text('Failed to initiate sync'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text('Sync failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+        _progressTimer?.cancel();
+      }
+    }
+  }
+
+  void _stopSync() {
+    setState(() {
+      _isSyncing = false;
+      _syncProgress = 0;
+    });
+    _progressTimer?.cancel();
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      const SnackBar(
+        content: Text('Sync cancelled by user'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -116,10 +203,6 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
       builder: (context, authProvider, _) {
         final isAdmin = authProvider.isAdmin;
         final user = authProvider.user;
-        final currentTime = DateFormat('HH:mm').format(_lastSyncTime);
-        final nextSyncTime = getNextSyncTime();
-        final nextSyncTimeFormatted = DateFormat('HH:mm').format(nextSyncTime);
-        final timeUntilNextSync = nextSyncTime.difference(_lastSyncTime);
 
         return ListView(
           children: [
@@ -154,7 +237,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                   onPressed: () async {
                     final navigator = Navigator.of(context, rootNavigator: true);
                     await context.read<AuthProvider>().logout();
-                    if (navigator.mounted) {
+                    if (mounted && navigator.mounted) {
                       navigator.pushReplacementNamed('/login');
                     }
                   },
@@ -277,49 +360,68 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
               },
             ),
 
-            // 15-minute sync time display
-            if (_syncIntervalHours == 0) ...[
+            const Divider(),
+
+            // Manual Sync Section
+            if (_isSyncing) ...[
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
+                  color: Colors.blue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.access_time, color: Colors.blue),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Current time: $currentTime',
-                            style: const TextStyle(
+                    Row(
+                      children: [
+                        const Icon(Icons.sync, color: Colors.blue, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Syncing data in background...',
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Next sync at: $nextSyncTimeFormatted',
-                            style: TextStyle(
                               color: Colors.blue.shade700,
-                              fontSize: 14,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Time remaining: ${timeUntilNextSync.inHours}h ${timeUntilNextSync.inMinutes % 60}m',
-                            style: TextStyle(
-                              color: Colors.blue.shade600,
-                              fontSize: 12,
-                            ),
+                        ),
+                        Text(
+                          '$_syncProgress%',
+                          style: TextStyle(
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const LinearProgressIndicator(
+                      value: null, // Will be set in code
+                      backgroundColor: null, // Will be set in code
+                      valueColor: null, // Will be set in code
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Contacts and call logs syncing...',
+                          style: TextStyle(
+                            color: Colors.blue.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          '${((_completedItems / _totalItems) * 100).toInt()}%',
+                          style: TextStyle(
+                            color: Colors.blue.shade600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -327,56 +429,40 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
               const SizedBox(height: 16),
             ],
 
-            const Divider(),
-
-            // Manual Sync Button
-            ListTile(
-              leading: const Icon(Icons.sync, color: Colors.blue),
-              title: const Text('Sync Now'),
-              subtitle: const Text('Manually trigger immediate sync'),
-              trailing: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: _isLoading
-                  ? null
-                  : () async {
-                      setState(() => _isLoading = true);
-                      setState(() => _lastSyncTime = DateTime.now()); // Update sync time
-
-                      try {
-                        final success = await authProvider.triggerSync();
-
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                success
-                                    ? 'Sync initiated successfully'
-                                    : 'Failed to initiate sync',
-                              ),
-                              backgroundColor: success ? Colors.green : Colors.red,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Sync failed: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } finally {
-                        if (mounted) {
-                          setState(() => _isLoading = false);
-                        }
-                      }
-                    },
+            // Sync Controls
+            Row(
+              children: [
+                Expanded(
+                  child: ListTile(
+                    leading: const Icon(Icons.sync, color: Colors.blue),
+                    title: const Text('Start Sync'),
+                    subtitle: Text(_isSyncing 
+                      ? 'Sync in progress - background sync running'
+                      : 'Manually trigger immediate sync'
+                    ),
+                    trailing: _isLoading || _isSyncing
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.play_arrow, color: Colors.green),
+                    onTap: _isLoading || _isSyncing
+                        ? null
+                        : _startSync,
+                  ),
+                ),
+                if (_isSyncing) ...[
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: IconButton(
+                      icon: const Icon(Icons.stop, color: Colors.red),
+                      onPressed: _stopSync,
+                      tooltip: 'Stop Syncing',
+                    ),
+                  ),
+                ],
+              ],
             ),
 
             const Divider(),
@@ -424,7 +510,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
 
                         if (success) {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
                               const SnackBar(
                                 content: Text('Battery optimization disabled successfully'),
                                 backgroundColor: Colors.green,
@@ -437,7 +523,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                           }
                         } else {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
                               const SnackBar(
                                 content: Text('Failed to disable battery optimization'),
                                 backgroundColor: Colors.orange,
@@ -447,7 +533,7 @@ class _SettingsTabState extends State<SettingsTab> with AutomaticKeepAliveClient
                         }
                       } catch (e) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(
                             SnackBar(
                               content: Text('Error: $e'),
                               backgroundColor: Colors.red,

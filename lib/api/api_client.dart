@@ -113,6 +113,31 @@ class ApiClient {
     }
   }
 
+  // Get calls for a specific user (used by regular users to see only their calls)
+  Future<List<Call>> getCallsForUser(int userId) async {
+    try {
+      final response = await dio.get('/calls', queryParameters: {
+        'limit': 10000,
+        'user_id': userId,
+      });
+      final List<dynamic> data = response.data as List<dynamic>;
+      return data.map((json) => Call.fromJson(json)).toList();
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // Get all calls (used by admins to see everyone's calls)
+  Future<List<Call>> getAllCalls() async {
+    try {
+      final response = await dio.get('/calls', queryParameters: {'limit': 10000});
+      final List<dynamic> data = response.data as List<dynamic>;
+      return data.map((json) => Call.fromJson(json)).toList();
+    } catch (e) {
+      throw _handleError(e);
+    }
+  }
+
   Future<Call> createCall(Call call) async {
     try {
       final response = await dio.post('/calls', data: call.toJson());
@@ -203,7 +228,7 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> flushCallsOnly(int userId) async {
-    // For now, we'll flush all data since we don't have a selective calls-only endpoint
+    // For now, we'll flush all data since we don't have a selective contacts-only endpoint
     // In the future, we could add separate endpoints for selective flushing
     try {
       final response = await dio.delete('/admin/users/$userId/data');

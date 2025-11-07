@@ -36,7 +36,23 @@ class _CallLogsScreenState extends State<CallLogsScreen> {
     });
 
     try {
-      final calls = await _apiClient.getCalls();
+      final authProvider = context.read<AuthProvider>();
+      final user = authProvider.user;
+
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Filter calls based on user role
+      List<Call> calls;
+      if (authProvider.isAdmin) {
+        // Admin can see all calls - but for better UX, let's also show which user made each call
+        calls = await _apiClient.getAllCalls();
+      } else {
+        // Regular users can only see their own calls
+        calls = await _apiClient.getCallsForUser(user.id);
+      }
+
       if (mounted) {
         setState(() {
           _calls = calls;

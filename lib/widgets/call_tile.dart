@@ -10,14 +10,44 @@ class CallTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncoming = call.direction == 'incoming';
+    final isOutgoing = call.direction == 'outgoing';
+    final isMissed = call.direction == 'missed';
+
+    Color iconColor;
+    Color arrowColor;
+    IconData callIcon;
+    String callTypeText;
+
+    if (isIncoming) {
+      iconColor = Colors.green;
+      arrowColor = Colors.green;
+      callIcon = Icons.call_received;
+      callTypeText = 'Incoming';
+    } else if (isOutgoing) {
+      iconColor = Colors.blue;
+      arrowColor = Colors.blue;
+      callIcon = Icons.call_made;
+      callTypeText = 'Outgoing';
+    } else if (isMissed) {
+      iconColor = Colors.red;
+      arrowColor = Colors.red;
+      callIcon = Icons.call_missed;
+      callTypeText = 'Missed';
+    } else {
+      // Fallback for any other call types
+      iconColor = Colors.grey;
+      arrowColor = Colors.grey;
+      callIcon = Icons.call;
+      callTypeText = call.direction;
+    }
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isIncoming ? Colors.green : Colors.blue,
+          backgroundColor: iconColor,
           child: Icon(
-            isIncoming ? Icons.call_received : Icons.call_made,
+            callIcon,
             color: Colors.white,
           ),
         ),
@@ -29,7 +59,7 @@ class CallTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${isIncoming ? 'Incoming' : 'Outgoing'} • ${call.formattedDuration}',
+              '$callTypeText • ${call.formattedDuration}',
             ),
             Text(
               DateFormat('MMM dd, yyyy • hh:mm a').format(call.startTime),
@@ -39,7 +69,7 @@ class CallTile extends StatelessWidget {
         ),
         trailing: Icon(
           isIncoming ? Icons.arrow_downward : Icons.arrow_upward,
-          color: isIncoming ? Colors.green : Colors.blue,
+          color: arrowColor,
         ),
       ),
     );
