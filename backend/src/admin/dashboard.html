@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - CRM System</title>
+    <link rel="stylesheet" href="/admin/css/styles.css" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <header class="dashboard-header">
+        <h1>Admin Dashboard</h1>
+        <div class="user-info">
+          <span class="user-email" id="userEmail">Loading...</span>
+          <button class="logout-btn" onclick="auth.logout()">Logout</button>
+        </div>
+      </header>
+
+      <main class="dashboard-content">
+        <nav class="nav-tabs">
+          <button class="nav-tab active" onclick="showTab('overview')">
+            Overview
+          </button>
+          <button class="nav-tab" onclick="showTab('users')">Users</button>
+          <button class="nav-tab" onclick="showTab('contacts')">
+            Contacts
+          </button>
+          <button class="nav-tab" onclick="showTab('calls')">Call Logs</button>
+        </nav>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-number" id="totalUsers">-</div>
+              <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="totalContacts">-</div>
+              <div class="stat-label">Total Contacts</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="totalCalls">-</div>
+              <div class="stat-label">Total Call Logs</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number" id="adminCount">-</div>
+              <div class="stat-label">Admin Users</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Quick Actions</h2>
+            <div class="user-actions">
+              <button class="btn btn-primary" onclick="showTab('users')">
+                Manage Users
+              </button>
+              <button class="btn btn-primary" onclick="showTab('contacts')">
+                View Contacts
+              </button>
+              <button class="btn btn-primary" onclick="showTab('calls')">
+                View Call Logs
+              </button>
+              <button class="btn btn-success" onclick="openCreateUserModal()">
+                Add New User
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="users" class="tab-content">
+          <div class="card">
+            <h2>User Management</h2>
+            <div class="user-actions">
+              <button class="btn btn-success" onclick="openCreateUserModal()">
+                Add New User
+              </button>
+              <button class="btn btn-primary" onclick="loadUsers()">
+                Refresh Users
+              </button>
+            </div>
+
+            <div id="usersTableContainer">
+              <!-- Users table will be loaded here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Contacts Tab -->
+        <div id="contacts" class="tab-content">
+          <div class="card">
+            <h2>Contact Management</h2>
+            <div class="user-actions">
+              <button class="btn btn-primary" onclick="loadContacts()">
+                Refresh Contacts
+              </button>
+              <select id="userFilter" onchange="filterContactsByUser()">
+                <option value="">All Users</option>
+              </select>
+            </div>
+
+            <div id="contactsTableContainer">
+              <!-- Contacts table will be loaded here -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Calls Tab -->
+        <div id="calls" class="tab-content">
+          <div class="card">
+            <h2>Call Log Management</h2>
+            <div class="user-actions">
+              <button class="btn btn-primary" onclick="loadCalls()">
+                Refresh Call Logs
+              </button>
+              <select id="callUserFilter" onchange="filterCallsByUser()">
+                <option value="">All Users</option>
+              </select>
+              <select
+                id="callDirectionFilter"
+                onchange="filterCallsByDirection()"
+              >
+                <option value="">All Directions</option>
+                <option value="incoming">Incoming</option>
+                <option value="outgoing">Outgoing</option>
+                <option value="missed">Missed</option>
+              </select>
+            </div>
+
+            <div id="callsTableContainer">
+              <!-- Calls table will be loaded here -->
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="createUserModal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeCreateUserModal()">&times;</span>
+        <h2>Create New User</h2>
+        <form id="createUserForm">
+          <div class="form-group">
+            <label for="userName">Name</label>
+            <input type="text" id="userName" name="name" required />
+          </div>
+          <div class="form-group">
+            <label for="userEmail">Email</label>
+            <input type="email" id="userEmailInput" name="email" required />
+          </div>
+          <div class="form-group">
+            <label for="userPassword">Password</label>
+            <input type="password" id="userPassword" name="password" required />
+          </div>
+          <div class="form-group">
+            <label for="userRole">Role</label>
+            <select id="userRole" name="role" required>
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="user-actions">
+            <button
+              type="button"
+              class="btn btn-danger"
+              onclick="closeCreateUserModal()"
+            >
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-success">Create User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/admin/js/auth.js"></script>
+    <script src="/admin/js/dashboard.js"></script>
+  </body>
+</html>

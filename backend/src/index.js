@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import bcrypt from 'bcryptjs';
+import { registerAdminRoutes } from './routes/admin.js';
 
 const app = new Hono();
 
@@ -14,64 +14,25 @@ app.use('/*', cors({
   credentials: true,
 }));
 
-// Simple JWT implementation (for Workers environment)
-function createJWT(payload, secret) {
-  const header = { alg: 'HS256', typ: 'JWT' };
-  const encodedHeader = btoa(JSON.stringify(header));
-  const encodedPayload = btoa(JSON.stringify(payload));
-  const signature = btoa(`${encodedHeader}.${encodedPayload}.${secret}`);
-  return `${encodedHeader}.${encodedPayload}.${signature}`;
-}
-
-function verifyJWT(token, secret) {
-  try {
-    const [encodedHeader, encodedPayload, signature] = token.split('.');
-    const expectedSignature = btoa(`${encodedHeader}.${encodedPayload}.${secret}`);
-
-    if (signature !== expectedSignature) {
-      return null;
-    }
-
-    return JSON.parse(atob(encodedPayload));
-  } catch {
-    return null;
-  }
-}
-
-// Auth Middleware
-const authMiddleware = async (c, next) => {
-  const authHeader = c.req.header('Authorization');
-
-  if (!authHeader?.startsWith('Bearer ')) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-
-  const token = authHeader.substring(7);
-  const decoded = verifyJWT(token, c.env.JWT_SECRET);
-
-  if (!decoded) {
-    return c.json({ error: 'Invalid token' }, 401);
-  }
-
-  c.set('user', decoded);
-  await next();
-};
-
-// Admin Middleware
-const adminMiddleware = async (c, next) => {
-  const user = c.get('user');
-  if (user.role !== 'admin') {
-    return c.json({ error: 'Forbidden: Admin only' }, 403);
-  }
-  await next();
-};
+// Import route modules
+import { authMiddleware } from './middleware/auth.js';
+import { adminMiddleware } from './middleware/admin.js';
+import { createJWT } from './utils/jwt.js';
+import bcrypt from 'bcryptjs';
 
 // === ROUTES ===
 
 // Health check
 app.get('/', (c) => {
-  return c.json({ message: 'Shared Contact CRM API', version: '2.0.0', features: ['UUID duplicate prevention', 'Missed call support'] });
+  return c.json({ 
+    message: 'Shared Contact CRM API', 
+    version: '2.0.0', 
+    features: ['UUID duplicate prevention', 'Missed call support', 'Admin Frontend'] 
+  });
 });
+
+// Register admin routes (frontend templates)
+registerAdminRoutes(app);
 
 // Login
 app.post('/login', async (c) => {

@@ -1,11 +1,13 @@
 name = "shared-contact-crm"
 main = "src/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+account_id = "94c365af32be5e5d043932a0f7eaa952"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "contact-crm-db"
-database_id = "17bfd7f3-9e65-4429-a59d-ee56b84b780f"
+database_id = "45ad8b3f-ba74-4647-84a1-2192dceda5e8"
 
 [vars]
 JWT_SECRET = "4q4Bgr40ejlhpwpxVguAM8IQaZennAonFB30iTEpLGG"
