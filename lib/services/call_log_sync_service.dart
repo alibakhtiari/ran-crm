@@ -25,13 +25,17 @@ class CallLogSyncService {
   }
 
   /// Read call logs from phone (including missed calls)
-  Future<List<phone_call_log.CallLogEntry>> readPhoneCallLogs({int limit = 100}) async {
+  Future<List<phone_call_log.CallLogEntry>> readPhoneCallLogs(
+      {int limit = 100}) async {
     if (!await hasPermissions()) {
       throw Exception('Phone permission not granted');
     }
 
-    final Iterable<phone_call_log.CallLogEntry> entries = await phone_call_log.CallLog.query(
-      dateFrom: DateTime.now().subtract(const Duration(days: 30)).millisecondsSinceEpoch,
+    final Iterable<phone_call_log.CallLogEntry> entries =
+        await phone_call_log.CallLog.query(
+      dateFrom: DateTime.now()
+          .subtract(const Duration(days: 30))
+          .millisecondsSinceEpoch,
       dateTo: DateTime.now().millisecondsSinceEpoch,
     );
 
@@ -43,7 +47,7 @@ class CallLogSyncService {
     // Determine direction
     String direction = 'incoming';
     String callType = 'incoming';
-    
+
     if (entry.callType == phone_call_log.CallType.incoming) {
       direction = 'incoming';
       callType = 'incoming';
@@ -61,7 +65,7 @@ class CallLogSyncService {
 
     // Get phone number
     final phoneNumber = entry.number ?? '';
-    
+
     return CallLog(
       id: entry.hashCode,
       phoneNumber: phoneNumber.replaceAll(RegExp(r'[^\d+]'), ''),
@@ -98,12 +102,13 @@ class CallLogSyncService {
 
           // Convert to CallLog with UUID
           final callLog = _convertToCallLog(entry, userId);
-          
+
           // Check for duplicate using UUID
           if (existingUuids.contains(callLog.uuid)) {
             skipped++;
             if (kDebugMode) {
-              print('Skipping duplicate call: ${callLog.phoneNumber} at ${callLog.timestamp}');
+              print(
+                  'Skipping duplicate call: ${callLog.phoneNumber} at ${callLog.timestamp}');
             }
             continue;
           }
@@ -122,7 +127,8 @@ class CallLogSyncService {
           synced++;
 
           if (kDebugMode) {
-            print('Synced call log: ${callLog.phoneNumber} at ${callLog.timestamp} (${callLog.direction})');
+            print(
+                'Synced call log: ${callLog.phoneNumber} at ${callLog.timestamp} (${callLog.direction})');
           }
         } catch (e) {
           failed++;
@@ -184,7 +190,7 @@ class CallLogSyncService {
     // Process in batches
     for (int i = 0; i < callLogs.length; i += batchSize) {
       final batch = callLogs.skip(i).take(batchSize).toList();
-      
+
       for (final entry in batch) {
         try {
           final phoneNumber = entry.number ?? '';
@@ -195,7 +201,7 @@ class CallLogSyncService {
           }
 
           final callLog = _convertToCallLog(entry, userId);
-          
+
           // Check for duplicate
           if (existingUuids.contains(callLog.uuid)) {
             skipped++;
@@ -228,7 +234,7 @@ class CallLogSyncService {
 
       // Report progress
       onProgress?.call(processed, total);
-      
+
       // Small delay to prevent overwhelming the server
       if (i + batchSize < callLogs.length) {
         await Future.delayed(const Duration(milliseconds: 100));
@@ -248,14 +254,16 @@ class CallLogSyncService {
   Future<List<Map<String, dynamic>>> getRecentCalls({int limit = 50}) async {
     try {
       final callLogs = await readPhoneCallLogs(limit: limit);
-      return callLogs.map((entry) => {
-        'number': entry.number ?? '',
-        'name': entry.name ?? '',
-        'type': entry.callType?.toString() ?? '',
-        'direction': _getDirectionFromCallType(entry.callType),
-        'timestamp': entry.timestamp ?? 0,
-        'duration': entry.duration ?? 0,
-      }).toList();
+      return callLogs
+          .map((entry) => {
+                'number': entry.number ?? '',
+                'name': entry.name ?? '',
+                'type': entry.callType?.toString() ?? '',
+                'direction': _getDirectionFromCallType(entry.callType),
+                'timestamp': entry.timestamp ?? 0,
+                'duration': entry.duration ?? 0,
+              })
+          .toList();
     } catch (e) {
       return [];
     }
