@@ -217,7 +217,7 @@ class CallLogSyncService {
           processed++;
 
           if (kDebugMode) {
-            print('Batch synced: ${callLog.phoneNumber} (${processed}/${total})');
+            print('Batch synced: ${callLog.phoneNumber} ($processed/$total)');
           }
         } catch (e) {
           failed++;

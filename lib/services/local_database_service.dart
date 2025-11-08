@@ -158,7 +158,7 @@ class LocalDatabaseService {
       String direction = record['direction'];
       
       // Ensure direction is valid
-      if (direction == null || direction.isEmpty || 
+      if (direction.isEmpty || 
           !['incoming', 'outgoing', 'missed'].contains(direction)) {
         direction = _inferDirectionFromCallType(record['call_type']);
       }
