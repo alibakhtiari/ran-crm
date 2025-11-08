@@ -27,12 +27,12 @@ const adminLoginPage = `<!DOCTYPE html>
         <div class="error" id="error"></div>
         <form id="loginForm">
             <div class="form-group">
-                <label>Email:</label>
-                <input type="email" id="email" value="admin@example.com" required>
+                 <label for="email">Email</label>
+                <input type="text" id="email" required>
             </div>
             <div class="form-group">
-                <label>Password:</label>
-                <input type="password" id="password" value="admin123" required>
+                <label for="password">Password</label>
+                <input type="password" id="password" required>
             </div>
             <button type="submit" class="login-btn">Login</button>
         </form>
@@ -43,14 +43,12 @@ const adminLoginPage = `<!DOCTYPE html>
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error');
-            
             try {
                 const response = await fetch('/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
-                
                 const data = await response.json();
                 if (response.ok && data.user && data.user.role === 'admin') {
                     localStorage.setItem('admin_token', data.token);
@@ -113,7 +111,6 @@ const adminDashboardPage = `<!DOCTYPE html>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
     </div>
-    
     <div class="container">
         <div class="tabs">
             <div class="tab active" onclick="showTab('overview')">Overview</div>
@@ -334,13 +331,13 @@ const adminDashboardPage = `<!DOCTYPE html>
 </html>`;
 
 export function registerAdminRoutes(app) {
-  // Get admin login page
-  app.get('/admin/', (c) => {
-    return c.html(adminLoginPage);
-  });
+    // Get admin login page
+    app.get('/admin/', (c) => {
+        return c.html(adminLoginPage);
+    });
 
-  // Get admin dashboard page
-  app.get('/admin/dashboard', (c) => {
-    return c.html(adminDashboardPage);
-  });
+    // Get admin dashboard page
+    app.get('/admin/dashboard', (c) => {
+        return c.html(adminDashboardPage);
+    });
 }
