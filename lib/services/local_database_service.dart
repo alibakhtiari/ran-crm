@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:logger/logger.dart';
 import '../models/contact.dart';
 import '../models/call_log.dart';
 
@@ -7,6 +8,8 @@ class LocalDatabaseService {
   static final LocalDatabaseService _instance = LocalDatabaseService._internal();
   factory LocalDatabaseService() => _instance;
   LocalDatabaseService._internal();
+
+  static final Logger _logger = Logger();
 
   static Database? _database;
 
@@ -104,7 +107,7 @@ class LocalDatabaseService {
         await _updateDirectionConstraint(db);
       } catch (e) {
         // If migration fails, recreate the table
-        print('Failed to update direction constraint, recreating table: $e');
+        _logger.e('Failed to update direction constraint, recreating table: $e');
         await _recreateCallLogsTable(db);
       }
     }
@@ -116,7 +119,7 @@ class LocalDatabaseService {
     try {
       await db.execute("UPDATE call_logs SET direction = 'incoming' WHERE direction IS NULL");
     } catch (e) {
-      print('Error updating NULL directions: $e');
+      _logger.e('Error updating NULL directions: $e');
     }
     
     // For SQLite, we can't easily modify CHECK constraints, so we recreate the table

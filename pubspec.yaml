@@ -43,6 +43,9 @@ dependencies:
   # UUID generation for duplicate prevention
   uuid: ^4.4.0
 
+  # Logging framework
+  logger: ^2.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
