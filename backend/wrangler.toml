@@ -8,4 +8,4 @@ database_name = "contact-crm-db"
 database_id = "17bfd7f3-9e65-4429-a59d-ee56b84b780f"
 
 [vars]
-JWT_SECRET = "change-this-to-a-strong-secret-in-production-abc123xyz789"
+JWT_SECRET = "4q4Bgr40ejlhpwpxVguAM8IQaZennAonFB30iTEpLGG"

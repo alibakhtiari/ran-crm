@@ -322,3 +322,8 @@ APK location: `build/app/outputs/flutter-apk/app-release.apk`
 
 **Status:** Backend configured and ready to deploy!
 **Next:** Register workers.dev subdomain and run `wrangler deploy`
+
+
+
+wrangler dev
+wrangler d1 execute contact-crm-db --local --file=./local.sql
